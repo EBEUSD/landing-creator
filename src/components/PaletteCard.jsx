@@ -1,4 +1,4 @@
-const SWATCHES = ['#0a0a0a', '#1a1a1a', '#111827', '#1e293b', '#2d1b3d', '#1c1917']
+const BLACK = '#0a0a0a'
 
 export default function PaletteCard({ item, onUpdate, onAdd }) {
   return (
@@ -27,43 +27,45 @@ export default function PaletteCard({ item, onUpdate, onAdd }) {
           onChange={e => onUpdate(item.id, { name: e.target.value })}
           placeholder="Nombre"
         />
-        <div className="field-row">
-          <label>
-            W
-            <input
-              type="number"
-              value={item.width}
-              min="1"
-              onChange={e => onUpdate(item.id, { width: Math.max(1, Number(e.target.value)) })}
-            />
-          </label>
-          <label>
-            H
-            <input
-              type="number"
-              value={item.height}
-              min="1"
-              onChange={e => onUpdate(item.id, { height: Math.max(1, Number(e.target.value)) })}
-            />
-          </label>
+        <div className="dim-section">
+          <span className="dim-section__label">Desktop</span>
+          <div className="dim-section__inputs">
+            <label className="dim-label">
+              W
+              <input
+                type="number"
+                value={item.width}
+                min="1"
+                onChange={e => onUpdate(item.id, { width: Math.max(1, Number(e.target.value)) })}
+              />
+            </label>
+            <label className="dim-label">
+              H
+              <input
+                type="number"
+                value={item.height}
+                min="1"
+                onChange={e => onUpdate(item.id, { height: Math.max(1, Number(e.target.value)) })}
+              />
+            </label>
+          </div>
         </div>
-        <div className="field-colors">
-          {SWATCHES.map(c => (
-            <button
-              key={c}
-              className={`color-swatch${item.color === c ? ' is-active' : ''}`}
-              style={{ backgroundColor: c }}
-              onClick={() => onUpdate(item.id, { color: c })}
-              title={c}
-            />
-          ))}
-          <input
-            type="color"
-            className="color-picker"
-            value={item.color}
-            onChange={e => onUpdate(item.id, { color: e.target.value })}
-            title="Color personalizado"
+        <div className="dim-colors">
+          <button
+            className={`color-swatch${item.color === BLACK ? ' is-active' : ''}`}
+            style={{ backgroundColor: BLACK }}
+            onClick={() => onUpdate(item.id, { color: BLACK })}
+            title="Negro"
           />
+          <label className="color-picker-btn" title="Color personalizado">
+            <span className="color-picker-btn__dot" style={{ backgroundColor: item.color }} />
+            <span className="color-picker-btn__text">Personalizado</span>
+            <input
+              type="color"
+              value={item.color}
+              onChange={e => onUpdate(item.id, { color: e.target.value })}
+            />
+          </label>
         </div>
       </div>
 

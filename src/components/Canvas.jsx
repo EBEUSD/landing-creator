@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import PlaceholderBlock from './PlaceholderBlock'
+import CanvasItemNotes from './CanvasItemNotes'
 
 function autoBarText(item) {
   const parts = [item.label || item.name]
@@ -10,7 +11,7 @@ function autoBarText(item) {
   return parts.join(' ')
 }
 
-export default function Canvas({ items, fullscreen, onRemove, onDuplicate, onMove, onUpdateLabel, onUpdateBarText, onUpdateDims }) {
+export default function Canvas({ items, fullscreen, onRemove, onDuplicate, onMove, onUpdateLabel, onUpdateBarText, onUpdateDims, onUpdateNotes }) {
   const [editingId, setEditingId] = useState(null)
   const [editValue, setEditValue] = useState('')
   const [barEditingId, setBarEditingId] = useState(null)
@@ -115,6 +116,13 @@ export default function Canvas({ items, fullscreen, onRemove, onDuplicate, onMov
               onDimsCommit={!fullscreen ? (updates) => onUpdateDims(item.instanceId, updates) : undefined}
               onCardDimsCommit={!fullscreen && item.cardWidth ? (updates) => onUpdateDims(item.instanceId, updates) : undefined}
             />
+            {!fullscreen && (
+              <CanvasItemNotes
+                instanceId={item.instanceId}
+                notes={item.notes}
+                onUpdate={notes => onUpdateNotes(item.instanceId, notes)}
+              />
+            )}
           </div>
         ))}
       </div>

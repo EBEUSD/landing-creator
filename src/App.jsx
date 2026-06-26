@@ -1,32 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { doc, setDoc } from 'firebase/firestore'
+import { db } from './firebase'
 import Palette from './components/Palette'
 import Canvas from './components/Canvas'
+import { STORES, draftKey } from './stores'
 import './App.css'
-
-const STORAGE_KEY = 'landing-creator-projects'
-const DRAFT_KEY = 'landing-creator-draft'
-
-function loadProjects() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY)
-    return data ? JSON.parse(data) : []
-  } catch {
-    return []
-  }
-}
-
-function persistProjects(projects) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(projects))
-}
-
-function loadDraft() {
-  try {
-    const data = localStorage.getItem(DRAFT_KEY)
-    return data ? JSON.parse(data) : null
-  } catch {
-    return null
-  }
-}
 
 const DEFAULT_PALETTE = [
   {
@@ -83,7 +62,7 @@ const DEFAULT_PALETTE = [
     color: '#0d0d0d',
     selectedVariantId: 'completo',
     variants: [
-      { id: 'completo', name: 'Completo', layout: 'shop', cols: 3, width: 1000, height: 1000, cardWidth: 600, cardHeight: 250 },
+      { id: 'completo', name: 'Completo', layout: 'shop', cols: 3, width: 1000, height: 1000, cardWidth: 600, cardHeight: 250, widthMb: 600, heightMb: 250 },
     ],
   },
   {
@@ -92,10 +71,10 @@ const DEFAULT_PALETTE = [
     color: '#111111',
     selectedVariantId: '4-col',
     variants: [
-      { id: '2-col',    name: '2 col',    layout: 'grid', cols: 2, width: 600, height: 800 },
-      { id: '3-col',    name: '3 col',    layout: 'grid', cols: 3, width: 600, height: 800 },
-      { id: '4-col',    name: '4 col',    layout: 'grid', cols: 4, width: 600, height: 800 },
-      { id: '5-slider', name: '5 Slider', layout: 'grid', cols: 5, width: 600, height: 800 },
+      { id: '2-col',    name: '2 col',    layout: 'grid', cols: 2, width: 600, height: 800, widthMb: null, heightMb: null },
+      { id: '3-col',    name: '3 col',    layout: 'grid', cols: 3, width: 600, height: 800, widthMb: null, heightMb: null },
+      { id: '4-col',    name: '4 col',    layout: 'grid', cols: 4, width: 600, height: 800, widthMb: null, heightMb: null },
+      { id: '5-slider', name: '5 Slider', layout: 'grid', cols: 5, width: 600, height: 800, widthMb: null, heightMb: null },
     ],
   },
   {
@@ -144,20 +123,53 @@ const DEFAULT_PALETTE = [
   },
 ]
 
+function mergePaletteWithDefaults(loaded) {
+  return loaded.map(cat => {
+    const def = DEFAULT_PALETTE.find(d => d.id === cat.id)
+    if (!def) return cat
+    return {
+      ...cat,
+      variants: cat.variants.map(v => {
+        const defV = def.variants.find(dv => dv.id === v.id)
+        if (!defV) return v
+        const merged = { ...v }
+        for (const key of Object.keys(defV)) {
+          if (!(key in merged)) merged[key] = defV[key]
+        }
+        return merged
+      }),
+    }
+  })
+}
+
+function loadDraft(storeId) {
+  try {
+    const data = localStorage.getItem(draftKey(storeId))
+    return data ? JSON.parse(data) : null
+  } catch {
+    return null
+  }
+}
+
 export default function App() {
-  const [palette, setPalette] = useState(() => loadDraft()?.palette ?? DEFAULT_PALETTE)
-  const [canvas, setCanvas] = useState(() => loadDraft()?.canvas ?? [])
+  const { storeId } = useParams()
+  const navigate = useNavigate()
+  const store = STORES.find(s => s.id === storeId)
+
+  const [palette, setPalette] = useState(() => {
+    const d = loadDraft(storeId)
+    return d?.palette ? mergePaletteWithDefaults(d.palette) : DEFAULT_PALETTE
+  })
+  const [canvas, setCanvas] = useState(() => loadDraft(storeId)?.canvas ?? [])
   const [fullscreen, setFullscreen] = useState(false)
 
-  const [projects, setProjects] = useState(loadProjects)
-  const [currentProjectId, setCurrentProjectId] = useState(() => loadDraft()?.currentProjectId ?? null)
-  const [projectName, setProjectName] = useState(() => loadDraft()?.projectName ?? '')
-  const [showProjects, setShowProjects] = useState(false)
+  const [currentProjectId, setCurrentProjectId] = useState(() => loadDraft(storeId)?.currentProjectId ?? null)
+  const [projectName, setProjectName] = useState(() => loadDraft(storeId)?.projectName ?? '')
   const [savedFlash, setSavedFlash] = useState(false)
 
   useEffect(() => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ canvas, palette, projectName, currentProjectId }))
-  }, [canvas, palette, projectName, currentProjectId])
+    localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, palette, projectName, currentProjectId }))
+  }, [canvas, palette, projectName, currentProjectId, storeId])
 
   // ── Palette handlers ──────────────────────────────
   const selectVariant = (categoryId, variantId) =>
@@ -205,6 +217,7 @@ export default function App() {
       bannerSide: variant.bannerSide ?? 'left',
       color: category.color,
       customBarText: null,
+      notes: [{ id: crypto.randomUUID(), status: '', titulo: '', urlImagen: '', idProductos: '', idProductosMobile: '', skus: '' }],
     }])
 
   const updateCanvasLabel = (instanceId, label) =>
@@ -220,6 +233,11 @@ export default function App() {
   const updateCanvasDims = (instanceId, changes) =>
     setCanvas(prev => prev.map(item =>
       item.instanceId === instanceId ? { ...item, ...changes } : item
+    ))
+
+  const updateCanvasNotes = (instanceId, notes) =>
+    setCanvas(prev => prev.map(item =>
+      item.instanceId === instanceId ? { ...item, notes } : item
     ))
 
   const removeFromCanvas = (instanceId) =>
@@ -246,37 +264,15 @@ export default function App() {
   }
 
   // ── Project handlers ──────────────────────────────
-  const handleSave = () => {
+  const handleSave = async () => {
     const name = projectName.trim()
     if (!name) return
     const id = currentProjectId || crypto.randomUUID()
     const project = { id, name, savedAt: Date.now(), canvas, palette }
-    const updated = currentProjectId
-      ? projects.map(p => p.id === id ? project : p)
-      : [...projects, project]
-    setProjects(updated)
-    persistProjects(updated)
+    await setDoc(doc(db, 'stores', storeId, 'projects', id), project)
     setCurrentProjectId(id)
     setSavedFlash(true)
     setTimeout(() => setSavedFlash(false), 2000)
-  }
-
-  const handleLoad = (project) => {
-    setCanvas(project.canvas)
-    setPalette(project.palette)
-    setCurrentProjectId(project.id)
-    setProjectName(project.name)
-    setShowProjects(false)
-  }
-
-  const handleDelete = (id) => {
-    const updated = projects.filter(p => p.id !== id)
-    setProjects(updated)
-    persistProjects(updated)
-    if (id === currentProjectId) {
-      setCurrentProjectId(null)
-      setProjectName('')
-    }
   }
 
   const handleNew = () => {
@@ -284,11 +280,8 @@ export default function App() {
     setPalette(DEFAULT_PALETTE)
     setCurrentProjectId(null)
     setProjectName('')
-    localStorage.removeItem(DRAFT_KEY)
+    localStorage.removeItem(draftKey(storeId))
   }
-
-  const formatDate = (ts) =>
-    new Date(ts).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
 
   return (
     <div className={`app${fullscreen ? ' app--fullscreen' : ''}`}>
@@ -296,13 +289,25 @@ export default function App() {
       {!fullscreen && (
         <nav className="app-nav">
           <div className="app-nav__brand">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor" opacity=".9"/>
-              <rect x="9" y="1" width="6" height="6" rx="1" fill="currentColor" opacity=".5"/>
-              <rect x="1" y="9" width="6" height="6" rx="1" fill="currentColor" opacity=".5"/>
-              <rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" opacity=".9"/>
-            </svg>
-            <span>Landing Creator</span>
+            <button
+              className="app-nav__back"
+              onClick={() => navigate(`/store/${storeId}`)}
+              title="Volver a proyectos"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            {store && (
+              <span
+                className="app-nav__store-dot"
+                style={{ background: store.color }}
+                title={store.name}
+              />
+            )}
+            <span className="app-nav__brand-text">
+              {store ? store.name : 'Landing Creator'}
+            </span>
           </div>
 
           <div className="app-nav__center">
@@ -325,15 +330,6 @@ export default function App() {
               disabled={!projectName.trim()}
             >
               Guardar
-            </button>
-            <button
-              className={`btn-ghost app-nav__projects-btn${showProjects ? ' app-nav__projects-btn--active' : ''}`}
-              onClick={() => setShowProjects(s => !s)}
-            >
-              Proyectos
-              {projects.length > 0 && (
-                <span className="app-nav__badge">{projects.length}</span>
-              )}
             </button>
           </div>
         </nav>
@@ -377,49 +373,10 @@ export default function App() {
             onUpdateLabel={updateCanvasLabel}
             onUpdateBarText={updateCanvasBarText}
             onUpdateDims={updateCanvasDims}
+            onUpdateNotes={updateCanvasNotes}
           />
         </main>
       </div>
-
-      {showProjects && (
-        <>
-          <div className="projects-overlay" onClick={() => setShowProjects(false)} />
-          <div className="projects-panel">
-            <div className="projects-panel__header">
-              <span className="label-caps">Proyectos guardados</span>
-              <button className="projects-panel__close" onClick={() => setShowProjects(false)}>✕</button>
-            </div>
-            <div className="projects-panel__body">
-              {projects.length === 0 ? (
-                <div className="projects-panel__empty">
-                  <p>No hay proyectos guardados aún.</p>
-                  <p>Escribí un nombre y hacé clic en <strong>Guardar</strong>.</p>
-                </div>
-              ) : (
-                <ul className="projects-panel__list">
-                  {[...projects].sort((a, b) => b.savedAt - a.savedAt).map(p => (
-                    <li
-                      key={p.id}
-                      className={`projects-panel__item${p.id === currentProjectId ? ' projects-panel__item--active' : ''}`}
-                    >
-                      <div className="projects-panel__item-info">
-                        <span className="projects-panel__item-name">{p.name}</span>
-                        <span className="projects-panel__item-meta">
-                          {formatDate(p.savedAt)} · {p.canvas.length} componente{p.canvas.length !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                      <div className="projects-panel__item-actions">
-                        <button className="btn-ghost" onClick={() => handleLoad(p)}>Abrir</button>
-                        <button className="projects-panel__delete" onClick={() => handleDelete(p.id)} title="Eliminar">✕</button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </>
-      )}
 
     </div>
   )

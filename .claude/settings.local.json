@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(netstat -ano)"
+      "PowerShell(netstat -ano)",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Equipo.NBK-EGIMENEZ\\\\Desktop\\\\Repositorios\\\\landing-creator\\\\src\\\\pages\")"
     ]
   }
 }

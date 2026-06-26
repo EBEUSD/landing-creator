@@ -1,4 +1,4 @@
-const SWATCHES = ['#0a0a0a', '#1a1a1a', '#111827', '#1e293b', '#2d1b3d', '#1c1917']
+const BLACK = '#0a0a0a'
 
 function DiagLines() {
   return (
@@ -67,6 +67,9 @@ export default function CategoryCard({ category, onSelectVariant, onUpdateVarian
   const setVariantField = (field, value) =>
     onUpdateVariant(category.id, variant.id, { [field]: Math.max(1, Number(value)) })
 
+  const setMobileField = (field, raw) =>
+    onUpdateVariant(category.id, variant.id, { [field]: raw === '' ? null : Math.max(1, Number(raw)) })
+
   return (
     <div className="cat-card">
       <div className="cat-card__head">
@@ -101,113 +104,125 @@ export default function CategoryCard({ category, onSelectVariant, onUpdateVarian
       />
 
       <div className="cat-card__dims">
-        <div className="dim-row">
-          <label className="dim-label">
-            W
-            <input
-              type="number"
-              value={variant.width}
-              min="1"
-              onChange={e => setVariantField('width', e.target.value)}
-            />
-          </label>
-          <label className="dim-label">
-            H
-            <input
-              type="number"
-              value={variant.height}
-              min="1"
-              onChange={e => setVariantField('height', e.target.value)}
-            />
-          </label>
-          {variant.layout === 'grid' && (
+
+        <div className="dim-section">
+          <span className="dim-section__label">Desktop</span>
+          <div className="dim-section__inputs">
             <label className="dim-label">
-              Cols
+              W
               <input
                 type="number"
-                value={variant.cols}
+                value={variant.width}
                 min="1"
-                max="12"
-                onChange={e => onUpdateVariant(category.id, variant.id, { cols: Math.max(1, Math.min(12, Number(e.target.value))) })}
+                onChange={e => setVariantField('width', e.target.value)}
               />
             </label>
-          )}
+            <label className="dim-label">
+              H
+              <input
+                type="number"
+                value={variant.height}
+                min="1"
+                onChange={e => setVariantField('height', e.target.value)}
+              />
+            </label>
+            {variant.layout === 'grid' && (
+              <label className="dim-label">
+                Col
+                <input
+                  type="number"
+                  value={variant.cols}
+                  min="1"
+                  max="12"
+                  onChange={e => onUpdateVariant(category.id, variant.id, { cols: Math.max(1, Math.min(12, Number(e.target.value))) })}
+                />
+              </label>
+            )}
+          </div>
         </div>
+
+        {'widthMb' in variant && (
+          <div className="dim-section dim-section--alt">
+            <span className="dim-section__label">Mobile</span>
+            <div className="dim-section__inputs">
+              <label className="dim-label">
+                W
+                <input
+                  type="number"
+                  value={variant.widthMb ?? ''}
+                  min="1"
+                  placeholder="—"
+                  onChange={e => setMobileField('widthMb', e.target.value)}
+                />
+              </label>
+              <label className="dim-label">
+                H
+                <input
+                  type="number"
+                  value={variant.heightMb ?? ''}
+                  min="1"
+                  placeholder="—"
+                  onChange={e => setMobileField('heightMb', e.target.value)}
+                />
+              </label>
+            </div>
+          </div>
+        )}
 
         {variant.layout === 'carousel' && (
-          <div className="dim-row">
-            <label className="dim-label dim-label--mb">
-              Card W
-              <input
-                type="number"
-                value={variant.cardWidth ?? 380}
-                min="1"
-                onChange={e => onUpdateVariant(category.id, variant.id, { cardWidth: Math.max(1, Number(e.target.value)) })}
-              />
-            </label>
-            <label className="dim-label dim-label--mb">
-              Card H
-              <input
-                type="number"
-                value={variant.cardHeight ?? 500}
-                min="1"
-                onChange={e => onUpdateVariant(category.id, variant.id, { cardHeight: Math.max(1, Number(e.target.value)) })}
-              />
-            </label>
-            <label className="dim-label dim-label--mb">
-              Cols
-              <input
-                type="number"
-                value={variant.cols}
-                min="1"
-                max="6"
-                onChange={e => onUpdateVariant(category.id, variant.id, { cols: Math.max(1, Math.min(6, Number(e.target.value))) })}
-              />
-            </label>
+          <div className="dim-section dim-section--alt">
+            <span className="dim-section__label">Cards</span>
+            <div className="dim-section__inputs">
+              <label className="dim-label">
+                W
+                <input
+                  type="number"
+                  value={variant.cardWidth ?? 380}
+                  min="1"
+                  onChange={e => onUpdateVariant(category.id, variant.id, { cardWidth: Math.max(1, Number(e.target.value)) })}
+                />
+              </label>
+              <label className="dim-label">
+                H
+                <input
+                  type="number"
+                  value={variant.cardHeight ?? 500}
+                  min="1"
+                  onChange={e => onUpdateVariant(category.id, variant.id, { cardHeight: Math.max(1, Number(e.target.value)) })}
+                />
+              </label>
+              <label className="dim-label">
+                ×
+                <input
+                  type="number"
+                  value={variant.cols}
+                  min="1"
+                  max="6"
+                  onChange={e => onUpdateVariant(category.id, variant.id, { cols: Math.max(1, Math.min(6, Number(e.target.value))) })}
+                />
+              </label>
+            </div>
           </div>
         )}
 
-        {variant.widthMb != null && (
-          <div className="dim-row">
-            <label className="dim-label dim-label--mb">
-              W mb
-              <input
-                type="number"
-                value={variant.widthMb}
-                min="1"
-                onChange={e => setVariantField('widthMb', e.target.value)}
-              />
-            </label>
-            <label className="dim-label dim-label--mb">
-              H mb
-              <input
-                type="number"
-                value={variant.heightMb}
-                min="1"
-                onChange={e => setVariantField('heightMb', e.target.value)}
-              />
-            </label>
-          </div>
-        )}
-
-        <div className="field-colors">
-          {SWATCHES.map(c => (
-            <button
-              key={c}
-              className={`color-swatch${category.color === c ? ' is-active' : ''}`}
-              style={{ backgroundColor: c }}
-              onClick={() => onUpdateCategory(category.id, { color: c })}
-              title={c}
-            />
-          ))}
-          <input
-            type="color"
-            className="color-picker"
-            value={category.color}
-            onChange={e => onUpdateCategory(category.id, { color: e.target.value })}
-            title="Color personalizado"
+        <div className="dim-colors">
+          <button
+            className={`color-swatch${category.color === BLACK ? ' is-active' : ''}`}
+            style={{ backgroundColor: BLACK }}
+            onClick={() => onUpdateCategory(category.id, { color: BLACK })}
+            title="Negro"
           />
+          <label className="color-picker-btn" title="Color personalizado">
+            <span className="color-picker-btn__dot" style={{ backgroundColor: category.color }} />
+            <span className="color-picker-btn__text">Personalizado</span>
+            <input
+              type="color"
+              value={category.color}
+              onChange={e => onUpdateCategory(category.id, { color: e.target.value })}
+            />
+          </label>
         </div>
+
       </div>
 
       <button className="cat-card__add" onClick={() => onAdd(category, variant)}>
