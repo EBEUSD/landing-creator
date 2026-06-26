@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import SKUSearchModal from './SKUSearchModal'
+
 const STATUSES = [
   { value: '',               label: '—',                      bg: 'transparent',  color: '#9ca3af', rowBg: 'transparent' },
   { value: 'por-hacer',      label: 'POR HACER',              bg: '#facc15',      color: '#713f12', rowBg: 'rgba(250,204,21,0.22)' },
@@ -24,8 +27,9 @@ export function normalizeNotes(notes) {
   return [EMPTY_ITEM()]
 }
 
-export default function CanvasItemNotes({ notes, onUpdate }) {
+export default function CanvasItemNotes({ notes, onUpdate, storeId }) {
   const rows = normalizeNotes(notes)
+  const [searchRowId, setSearchRowId] = useState(null)
 
   const updateItem = (id, field, value) =>
     onUpdate(rows.map(r => r.id === id ? { ...r, [field]: value } : r))
@@ -37,8 +41,22 @@ export default function CanvasItemNotes({ notes, onUpdate }) {
     onUpdate(rows.filter(r => r.id !== id))
   }
 
+  const handleAddSkus = (rowId, itemIds) => {
+    const row = rows.find(r => r.id === rowId)
+    if (!row) return
+    const existing = row.skus.trim()
+    const appended = itemIds.join(',\n')
+    updateItem(rowId, 'skus', existing ? `${existing},\n${appended}` : appended)
+  }
+
   return (
     <div className="canvas-notes">
+      {searchRowId && (
+        <SKUSearchModal
+          onClose={() => setSearchRowId(null)}
+          onAdd={(ids) => handleAddSkus(searchRowId, ids)}
+        />
+      )}
       <div className="canvas-notes__table-wrap">
         <table className="canvas-notes__table">
           <thead>
@@ -92,13 +110,28 @@ export default function CanvasItemNotes({ notes, onUpdate }) {
                       onChange={e => updateItem(row.id, 'idProductosMobile', e.target.value)} placeholder="—" />
                   </td>
                   <td className="canvas-notes__td">
-                    <textarea
-                      className="canvas-notes__input canvas-notes__input--skus"
-                      value={row.skus}
-                      onChange={e => updateItem(row.id, 'skus', e.target.value)}
-                      placeholder="—"
-                      rows={1}
-                    />
+                    <div className="cn-skus-cell">
+                      <textarea
+                        className="canvas-notes__input canvas-notes__input--skus"
+                        value={row.skus}
+                        onChange={e => updateItem(row.id, 'skus', e.target.value)}
+                        placeholder="—"
+                        rows={1}
+                      />
+                      {storeId === 'rouge' && (
+                        <button
+                          className="canvas-notes__sku-btn"
+                          onClick={() => setSearchRowId(row.id)}
+                          type="button"
+                          title="Buscar SKUs en Rouge"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+                            <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.6"/>
+                            <path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td className="canvas-notes__td cn-del">
                     <button className="canvas-notes__remove"

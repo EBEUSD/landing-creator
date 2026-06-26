@@ -11,7 +11,7 @@ function autoBarText(item) {
   return parts.join(' ')
 }
 
-export default function Canvas({ items, fullscreen, onRemove, onDuplicate, onMove, onUpdateLabel, onUpdateBarText, onUpdateDims, onUpdateNotes }) {
+export default function Canvas({ items, fullscreen, storeId, onRemove, onDuplicate, onMove, onUpdateLabel, onUpdateBarText, onUpdateDims, onUpdateNotes }) {
   const [editingId, setEditingId] = useState(null)
   const [editValue, setEditValue] = useState('')
   const [barEditingId, setBarEditingId] = useState(null)
@@ -120,6 +120,7 @@ export default function Canvas({ items, fullscreen, onRemove, onDuplicate, onMov
               <CanvasItemNotes
                 instanceId={item.instanceId}
                 notes={item.notes}
+                storeId={storeId}
                 onUpdate={notes => onUpdateNotes(item.instanceId, notes)}
               />
             )}

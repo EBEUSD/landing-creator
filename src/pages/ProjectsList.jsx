@@ -50,6 +50,7 @@ export default function ProjectsList() {
       palette: project.palette,
       projectName: project.name,
       currentProjectId: project.id,
+      folderLink: project.folderLink ?? '',
     }))
     navigate(`/store/${storeId}/editor`)
   }

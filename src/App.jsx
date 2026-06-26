@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from './firebase'
@@ -164,12 +164,14 @@ export default function App() {
   const [fullscreen, setFullscreen] = useState(false)
 
   const [currentProjectId, setCurrentProjectId] = useState(() => loadDraft(storeId)?.currentProjectId ?? null)
+  const currentProjectIdRef = useRef(loadDraft(storeId)?.currentProjectId ?? null)
   const [projectName, setProjectName] = useState(() => loadDraft(storeId)?.projectName ?? '')
+  const [folderLink, setFolderLink] = useState(() => loadDraft(storeId)?.folderLink ?? '')
   const [savedFlash, setSavedFlash] = useState(false)
 
   useEffect(() => {
-    localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, palette, projectName, currentProjectId }))
-  }, [canvas, palette, projectName, currentProjectId, storeId])
+    localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, palette, projectName, currentProjectId, folderLink }))
+  }, [canvas, palette, projectName, currentProjectId, folderLink, storeId])
 
   // ── Palette handlers ──────────────────────────────
   const selectVariant = (categoryId, variantId) =>
@@ -267,19 +269,22 @@ export default function App() {
   const handleSave = async () => {
     const name = projectName.trim()
     if (!name) return
-    const id = currentProjectId || crypto.randomUUID()
-    const project = { id, name, savedAt: Date.now(), canvas, palette }
-    await setDoc(doc(db, 'stores', storeId, 'projects', id), project)
+    const id = currentProjectIdRef.current || crypto.randomUUID()
+    currentProjectIdRef.current = id
     setCurrentProjectId(id)
+    const project = { id, name, savedAt: Date.now(), canvas, palette, folderLink }
+    await setDoc(doc(db, 'stores', storeId, 'projects', id), project)
     setSavedFlash(true)
     setTimeout(() => setSavedFlash(false), 2000)
   }
 
   const handleNew = () => {
+    currentProjectIdRef.current = null
     setCanvas([])
     setPalette(DEFAULT_PALETTE)
     setCurrentProjectId(null)
     setProjectName('')
+    setFolderLink('')
     localStorage.removeItem(draftKey(storeId))
   }
 
@@ -360,6 +365,32 @@ export default function App() {
                 <span className="canvas-count">{canvas.length}</span>
               )}
             </span>
+            {!fullscreen && (
+              <div className="canvas-folder-wrap">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" className="canvas-folder-icon">
+                  <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3.086a1.5 1.5 0 0 1 1.06.44l.915.914A1.5 1.5 0 0 0 9.62 4.9H12.5A1.5 1.5 0 0 1 14 6.4v5.1A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5v-7Z" stroke="currentColor" strokeWidth="1.3" fill="none"/>
+                </svg>
+                <input
+                  className="canvas-folder-input"
+                  type="url"
+                  value={folderLink}
+                  onChange={e => setFolderLink(e.target.value)}
+                  placeholder="Link carpeta de piezas..."
+                  spellCheck={false}
+                />
+                {folderLink && (
+                  <a
+                    href={/^https?:\/\//i.test(folderLink) ? folderLink : `https://${folderLink}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="canvas-folder-open"
+                    title="Abrir carpeta"
+                  >
+                    ↗
+                  </a>
+                )}
+              </div>
+            )}
             <button className="btn-ghost" onClick={() => setFullscreen(f => !f)}>
               {fullscreen ? '✕ Cerrar' : '⛶ Pantalla completa'}
             </button>
@@ -367,6 +398,7 @@ export default function App() {
           <Canvas
             items={canvas}
             fullscreen={fullscreen}
+            storeId={storeId}
             onRemove={removeFromCanvas}
             onDuplicate={duplicateCanvasItem}
             onMove={moveCanvas}
