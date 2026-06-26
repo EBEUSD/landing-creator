@@ -1,15 +1,25 @@
 import { useState, useEffect } from 'react'
+import { FiSearch } from 'react-icons/fi'
 
-const PROXY       = (url) => `/api/vtex?url=${encodeURIComponent(url)}`
+const PROXY = import.meta.env.DEV
+  ? (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
+  : (url) => `/api/vtex?url=${encodeURIComponent(url)}`
 const VTEX_SEARCH = 'https://www.perfumeriasrouge.com/api/catalog_system/pub/products/search'
 const VTEX_BRANDS = 'https://www.perfumeriasrouge.com/api/catalog_system/pub/brand/list'
 
 const proxiedFetch = (url, opts) => fetch(PROXY(url), opts)
 
 const CATEGORY_KEYS = [
-  { key: 'perfumes',   label: 'Perfumes',   catId: 100 },
-  { key: 'maquillaje', label: 'Maquillaje', catId: 105 },
+  { key: 'perfumes',   label: 'Perfumes',   catId: 100, slug: 'perfumes-y-fragancias' },
+  { key: 'maquillaje', label: 'Maquillaje', catId: 105, slug: 'maquillaje' },
 ]
+
+function toSlug(str) {
+  return str.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '').trim()
+    .replace(/\s+/g, '-')
+}
 
 const SORTS = [
   { id: 'OrderByTopSaleDESC',      label: 'Más vendidos'    },
@@ -50,19 +60,29 @@ export default function SKUSearchModal({ onClose, onAdd }) {
     setSkus(null)
     setSelected(new Set())
 
-    const ftUrl = `${VTEX_SEARCH}?ft=${encodeURIComponent(q)}&fq=C:${cat.catId}&O=${sort}&_from=0&_to=4`
+    const H = { headers: { Accept: 'application/json' } }
+    const slugUrl = `${VTEX_SEARCH}/${cat.slug}/${toSlug(q)}?map=c,b&O=${sort}&_from=0&_to=4`
+    const ftUrl   = `${VTEX_SEARCH}?ft=${encodeURIComponent(q)}&fq=C:${cat.catId}&O=${sort}&_from=0&_to=4`
 
     try {
-      let res
+      let products = null
+
       if (match) {
-        res = await proxiedFetch(buildSearchUrl(match.id, cat.catId, sort, 4), { headers: { Accept: 'application/json' } })
-        if (res.status === 413) res = await proxiedFetch(ftUrl, { headers: { Accept: 'application/json' } })
-      } else {
-        res = await proxiedFetch(ftUrl, { headers: { Accept: 'application/json' } })
+        const r = await proxiedFetch(buildSearchUrl(match.id, cat.catId, sort, 4), H)
+        if (r.ok && r.status !== 413) products = await r.json()
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const products = await res.json()
-      const flat = products.flatMap(p =>
+
+      if (!products) {
+        const r = await proxiedFetch(slugUrl, H)
+        if (r.ok) { products = await r.json() }
+      }
+
+      if (!products || products.length === 0) {
+        const r = await proxiedFetch(ftUrl, H)
+        if (r.ok) products = await r.json()
+        else throw new Error(`HTTP ${r.status}`)
+      }
+      const flat = (products ?? []).flatMap(p =>
         p.items.map(item => ({
           itemId:   item.itemId,
           refId:    item.referenceId?.[0]?.Value ?? item.itemId,

@@ -38,6 +38,7 @@ export default function CanvasItemNotes({ notes, onUpdate, storeId }) {
 
   const removeItem = (id) => {
     if (rows.length <= 1) return
+    if (!window.confirm('¿Eliminar esta fila?')) return
     onUpdate(rows.filter(r => r.id !== id))
   }
 
@@ -45,8 +46,8 @@ export default function CanvasItemNotes({ notes, onUpdate, storeId }) {
     const row = rows.find(r => r.id === rowId)
     if (!row) return
     const existing = row.skus.trim()
-    const appended = itemIds.join(',\n')
-    updateItem(rowId, 'skus', existing ? `${existing},\n${appended}` : appended)
+    const appended = itemIds.join(' /// ')
+    updateItem(rowId, 'skus', existing ? `${existing} /// ${appended}` : appended)
   }
 
   return (
@@ -68,7 +69,6 @@ export default function CanvasItemNotes({ notes, onUpdate, storeId }) {
               <th className="canvas-notes__th cn-ids">IDs desktop</th>
               <th className="canvas-notes__th cn-ids">IDs mobile</th>
               <th className="canvas-notes__th cn-skus">SKUs</th>
-              <th className="canvas-notes__th cn-del" />
             </tr>
           </thead>
           <tbody>
@@ -118,26 +118,28 @@ export default function CanvasItemNotes({ notes, onUpdate, storeId }) {
                         placeholder="—"
                         rows={1}
                       />
-                      {storeId === 'rouge' && (
+                      <div className="cn-skus-actions">
+                        {storeId === 'rouge' && (
+                          <button
+                            className="cn-skus-icon-btn cn-skus-icon-btn--search"
+                            onClick={() => setSearchRowId(row.id)}
+                            type="button"
+                            title="Buscar SKUs en Rouge"
+                          >
+                            ⌕
+                          </button>
+                        )}
                         <button
-                          className="canvas-notes__sku-btn"
-                          onClick={() => setSearchRowId(row.id)}
+                          className="cn-skus-icon-btn cn-skus-icon-btn--remove"
+                          onClick={() => removeItem(row.id)}
+                          disabled={rows.length <= 1}
                           type="button"
-                          title="Buscar SKUs en Rouge"
+                          title="Eliminar fila"
                         >
-                          <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
-                            <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.6"/>
-                            <path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-                          </svg>
+                          ✕
                         </button>
-                      )}
+                      </div>
                     </div>
-                  </td>
-                  <td className="canvas-notes__td cn-del">
-                    <button className="canvas-notes__remove"
-                      onClick={() => removeItem(row.id)}
-                      disabled={rows.length <= 1}
-                      title="Eliminar fila">×</button>
                   </td>
                 </tr>
               )

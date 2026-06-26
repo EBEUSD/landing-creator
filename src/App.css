@@ -931,8 +931,7 @@
 .cn-titulo { width: 18%; }
 .cn-url    { width: 24%; }
 .cn-ids    { width: 13%; }
-.cn-skus   { width: 10%; }
-.cn-del    { width: 26px; }
+.cn-skus   { width: 14%; }
 
 .canvas-notes__row {
   background: var(--row-bg, transparent);
@@ -954,7 +953,6 @@
   }
 
   &.cn-status { padding: 3px 4px; }
-  &.cn-del { text-align: center; }
 }
 
 .canvas-notes__status {
@@ -1001,31 +999,12 @@
     line-height: 1.4;
     min-height: 24px;
     field-sizing: content;
+    width: auto;
+    flex: 1;
+    min-width: 0;
   }
 }
 
-.canvas-notes__remove {
-  background: transparent;
-  border: none;
-  color: #d1d5db;
-  font-size: 14px;
-  cursor: pointer;
-  width: 22px;
-  height: 22px;
-  border-radius: 3px;
-  padding: 0;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  &:hover:not(:disabled) {
-    background: #fee2e2;
-    color: #dc2626;
-  }
-
-  &:disabled { opacity: 0.15; cursor: not-allowed; }
-}
 
 .canvas-notes__add {
   display: block;
@@ -1598,27 +1577,51 @@
   &:hover { background: #f1f5f9; }
 }
 
-/* ── SKU search button (notes table) ────────────────── */
+/* ── SKU cell ────────────────────────────────────────── */
 .cn-skus-cell {
   display: flex;
-  align-items: flex-start;
-  gap: 3px;
+  align-items: center;
+  gap: 2px;
 }
 
-.canvas-notes__sku-btn {
+.cn-skus-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 2px;
   flex-shrink: 0;
+  background: rgba(0,0,0,0.06);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.cn-skus-icon-btn {
   background: transparent;
   border: none;
-  color: #cbd5e1;
   cursor: pointer;
-  padding: 3px;
+  width: 22px;
+  height: 22px;
   border-radius: 3px;
-  margin-top: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.12s, color 0.12s;
+  flex-shrink: 0;
 
-  &:hover { background: #eff6ff; color: #3b82f6; }
+  &:disabled { opacity: 0.3; cursor: not-allowed; }
+}
+
+.cn-skus-icon-btn--search {
+  color: #1e293b;
+  font-size: 15px;
+  line-height: 1;
+  &:hover { background: rgba(37,99,235,0.12); color: #2563eb; }
+}
+
+.cn-skus-icon-btn--remove {
+  color: #1e293b;
+  font-size: 13px;
+  line-height: 1;
+  &:hover:not(:disabled) { background: #fee2e2; color: #dc2626; }
 }
 
 /* ── SKU Search Modal ────────────────────────────────── */
