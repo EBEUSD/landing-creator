@@ -1041,7 +1041,7 @@
   transition: color 0.15s, background 0.15s;
 
   &:hover {
-    color: var(--accent);
+    color: white;
     background: #eff6ff;
   }
 }

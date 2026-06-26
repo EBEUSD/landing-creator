@@ -23,7 +23,6 @@ export default function SKUSearchModal({ onClose, onAdd }) {
   const [categoryKey, setCategoryKey] = useState('perfumes')
   const [sort, setSort]               = useState('OrderByTopSaleDESC')
   const [brands, setBrands]           = useState([])
-  const [brandsLoading, setBrandsLoading] = useState(true)
   const [skus, setSkus]               = useState(null)
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState(null)
@@ -34,7 +33,6 @@ export default function SKUSearchModal({ onClose, onAdd }) {
       .then(r => r.json())
       .then(data => setBrands(data.filter(b => b.isActive)))
       .catch(() => {})
-      .finally(() => setBrandsLoading(false))
   }, [])
 
   const handleSearch = async (e) => {
@@ -43,22 +41,21 @@ export default function SKUSearchModal({ onClose, onAdd }) {
     if (!q) return
 
     const match = brands.find(b => b.name.toLowerCase().includes(q.toLowerCase()))
-    if (!match) {
-      setError(`Marca "${q}" no encontrada en Rouge.`)
-      setSkus(null)
-      return
-    }
+    const cat   = CATEGORY_KEYS.find(c => c.key === categoryKey)
 
-    const cat = CATEGORY_KEYS.find(c => c.key === categoryKey)
     setLoading(true)
     setError(null)
     setSkus(null)
     setSelected(new Set())
 
+    const ftUrl = PROXY(`${VTEX_SEARCH}?ft=${encodeURIComponent(q)}&fq=C:${cat.catId}&O=${sort}&_from=0&_to=4`)
+
     try {
-      let res = await fetch(buildUrl(match.id, cat.catId, sort, 4), { headers: { Accept: 'application/json' } })
-      if (res.status === 413) {
-        const ftUrl = PROXY(`${VTEX_SEARCH}?ft=${encodeURIComponent(q)}&fq=C:${cat.catId}&O=${sort}&_from=0&_to=4`)
+      let res
+      if (match) {
+        res = await fetch(buildUrl(match.id, cat.catId, sort, 4), { headers: { Accept: 'application/json' } })
+        if (res.status === 413) res = await fetch(ftUrl, { headers: { Accept: 'application/json' } })
+      } else {
         res = await fetch(ftUrl, { headers: { Accept: 'application/json' } })
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -72,7 +69,7 @@ export default function SKUSearchModal({ onClose, onAdd }) {
         }))
       )
       setSkus(flat)
-      if (flat.length === 0) setError(`Sin resultados de ${match.name} en ${cat.label}.`)
+      if (flat.length === 0) setError(`Sin resultados para "${q}" en ${cat.label}.`)
     } catch (err) {
       setError(
         err.message === 'Failed to fetch'
@@ -136,15 +133,14 @@ export default function SKUSearchModal({ onClose, onAdd }) {
             className="sku-modal__query"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder={brandsLoading ? 'Cargando marcas…' : 'Marca, ej: Versace, Lancôme…'}
-            disabled={brandsLoading}
+            placeholder="Marca, ej: Versace, Lancôme…"
             autoFocus
             spellCheck={false}
           />
           <button
             className="btn-primary"
             type="submit"
-            disabled={loading || brandsLoading || !query.trim()}
+            disabled={loading || !query.trim()}
           >
             {loading ? '…' : 'Buscar'}
           </button>
