@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react'
 
-const PROXY       = (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
+const PROXY1      = (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
+const PROXY2      = (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
 const VTEX_SEARCH = 'https://www.perfumeriasrouge.com/api/catalog_system/pub/products/search'
 const VTEX_BRANDS = 'https://www.perfumeriasrouge.com/api/catalog_system/pub/brand/list'
+
+async function proxiedFetch(url, opts) {
+  const r1 = await fetch(PROXY1(url), opts)
+  if (r1.status !== 403) return r1
+  return fetch(PROXY2(url), opts)
+}
 
 const CATEGORY_KEYS = [
   { key: 'perfumes',   label: 'Perfumes',   catId: 100 },
@@ -14,8 +21,8 @@ const SORTS = [
   { id: 'OrderByBestDiscountDESC', label: 'Mayor descuento' },
 ]
 
-function buildUrl(brandId, catId, sort, to = 4) {
-  return PROXY(`${VTEX_SEARCH}?fq=B:${brandId}&fq=C:${catId}&O=${sort}&_from=0&_to=${to}`)
+function buildSearchUrl(brandId, catId, sort, to = 4) {
+  return `${VTEX_SEARCH}?fq=B:${brandId}&fq=C:${catId}&O=${sort}&_from=0&_to=${to}`
 }
 
 export default function SKUSearchModal({ onClose, onAdd }) {
@@ -29,7 +36,7 @@ export default function SKUSearchModal({ onClose, onAdd }) {
   const [selected, setSelected]       = useState(new Set())
 
   useEffect(() => {
-    fetch(PROXY(VTEX_BRANDS), { headers: { Accept: 'application/json' } })
+    proxiedFetch(VTEX_BRANDS, { headers: { Accept: 'application/json' } })
       .then(r => r.json())
       .then(data => setBrands(data.filter(b => b.isActive)))
       .catch(() => {})
@@ -48,15 +55,15 @@ export default function SKUSearchModal({ onClose, onAdd }) {
     setSkus(null)
     setSelected(new Set())
 
-    const ftUrl = PROXY(`${VTEX_SEARCH}?ft=${encodeURIComponent(q)}&fq=C:${cat.catId}&O=${sort}&_from=0&_to=4`)
+    const ftUrl = `${VTEX_SEARCH}?ft=${encodeURIComponent(q)}&fq=C:${cat.catId}&O=${sort}&_from=0&_to=4`
 
     try {
       let res
       if (match) {
-        res = await fetch(buildUrl(match.id, cat.catId, sort, 4), { headers: { Accept: 'application/json' } })
-        if (res.status === 413) res = await fetch(ftUrl, { headers: { Accept: 'application/json' } })
+        res = await proxiedFetch(buildSearchUrl(match.id, cat.catId, sort, 4), { headers: { Accept: 'application/json' } })
+        if (res.status === 413) res = await proxiedFetch(ftUrl, { headers: { Accept: 'application/json' } })
       } else {
-        res = await fetch(ftUrl, { headers: { Accept: 'application/json' } })
+        res = await proxiedFetch(ftUrl, { headers: { Accept: 'application/json' } })
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const products = await res.json()
