@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "PowerShell(netstat -ano)",
-      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Equipo.NBK-EGIMENEZ\\\\Desktop\\\\Repositorios\\\\landing-creator\\\\src\\\\pages\")"
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Equipo.NBK-EGIMENEZ\\\\Desktop\\\\Repositorios\\\\landing-creator\\\\src\\\\pages\")",
+      "PowerShell(firebase --version 2>&1)",
+      "PowerShell(npm install -g firebase-tools 2>&1)"
     ]
   }
 }

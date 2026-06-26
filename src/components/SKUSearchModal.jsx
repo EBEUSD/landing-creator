@@ -1,15 +1,10 @@
 import { useState, useEffect } from 'react'
 
-const PROXY1      = (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
-const PROXY2      = (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+const PROXY       = (url) => `/api/vtex?url=${encodeURIComponent(url)}`
 const VTEX_SEARCH = 'https://www.perfumeriasrouge.com/api/catalog_system/pub/products/search'
 const VTEX_BRANDS = 'https://www.perfumeriasrouge.com/api/catalog_system/pub/brand/list'
 
-async function proxiedFetch(url, opts) {
-  const r1 = await fetch(PROXY1(url), opts)
-  if (r1.status !== 403) return r1
-  return fetch(PROXY2(url), opts)
-}
+const proxiedFetch = (url, opts) => fetch(PROXY(url), opts)
 
 const CATEGORY_KEYS = [
   { key: 'perfumes',   label: 'Perfumes',   catId: 100 },
