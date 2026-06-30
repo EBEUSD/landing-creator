@@ -55,6 +55,16 @@ export default function StorePicker() {
         </button>
       </div>
 
+      <button className="sp-all-projects-btn" onClick={() => navigate('/all-projects')}>
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+          <rect x="1" y="1" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+          <rect x="9" y="1" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+          <rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+          <rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+        </svg>
+        Ver todos los proyectos
+      </button>
+
       {showTeams && <TeamsModal onClose={() => setShowTeams(false)} />}
     </div>
   )

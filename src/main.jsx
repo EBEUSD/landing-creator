@@ -5,6 +5,7 @@ import './index.css'
 import StorePicker from './pages/StorePicker'
 import ProjectsList from './pages/ProjectsList'
 import Calendar from './pages/Calendar'
+import AllProjects from './pages/AllProjects'
 import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(
@@ -13,6 +14,7 @@ createRoot(document.getElementById('root')).render(
       <Routes>
         <Route path="/" element={<StorePicker />} />
         <Route path="/calendar" element={<Calendar />} />
+        <Route path="/all-projects" element={<AllProjects />} />
         <Route path="/store/:storeId" element={<ProjectsList />} />
         <Route path="/store/:storeId/editor" element={<App />} />
       </Routes>
