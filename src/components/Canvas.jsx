@@ -155,6 +155,15 @@ export default function Canvas({ items, fullscreen, storeId, onRemove, onDuplica
                 </div>
               </div>
             )}
+            {!fullscreen && (
+              <textarea
+                className={`canvas-item__comment${item.comment ? ' canvas-item__comment--filled' : ''}`}
+                value={item.comment || ''}
+                onChange={e => onUpdateDims(item.instanceId, { comment: e.target.value })}
+                placeholder="Agregar comentario..."
+                rows={1}
+              />
+            )}
             <PlaceholderBlock
               name={item.name}
               label={item.label}

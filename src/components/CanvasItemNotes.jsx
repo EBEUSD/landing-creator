@@ -367,6 +367,10 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
   }
 
   const handleUploadImg = async (rowId, type, file) => {
+    if (file.size > 4 * 1024 * 1024) {
+      alert('vtex no me deja poner fotos de mas de 4mb , perdon :(')
+      return
+    }
     const key = `${rowId}_${type}`
     setUploadingMap(prev => ({ ...prev, [key]: true }))
     try {

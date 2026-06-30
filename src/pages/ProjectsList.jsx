@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   collection, onSnapshot, deleteDoc, doc, updateDoc,
-  addDoc, query, orderBy,
+  addDoc, query, orderBy, getDocs,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { STORES, draftKey } from '../stores'
@@ -185,7 +185,8 @@ export default function ProjectsList() {
   }
 
   const filtered = projects.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase())
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.projectCode && p.projectCode.toLowerCase().includes(search.toLowerCase()))
   )
 
   const handleOpen = (project) => {
@@ -196,6 +197,7 @@ export default function ProjectsList() {
       currentProjectId: project.id,
       folderLink:       project.folderLink ?? '',
       eventId:          project.eventId ?? null,
+      projectCode:      project.projectCode ?? null,
     }))
     navigate(`/store/${storeId}/editor`)
   }
@@ -229,6 +231,12 @@ export default function ProjectsList() {
     setConfirmDelete(null)
   }
 
+  const handleDeleteAll = async () => {
+    if (!window.confirm(`¿Vaciar TODOS los proyectos de ${store.name}? Esta acción no se puede deshacer.`)) return
+    const snap = await getDocs(collection(db, 'stores', storeId, 'projects'))
+    await Promise.all(snap.docs.map(d => deleteDoc(d.ref)))
+  }
+
   const handleAssignEvent = async (projectId, evId) => {
     await updateDoc(doc(db, 'stores', storeId, 'projects', projectId), { eventId: evId })
     setAssigningId(null)
@@ -250,6 +258,11 @@ export default function ProjectsList() {
         <button className="pl-new-btn" onClick={handleNew}>
           + Nuevo proyecto
         </button>
+        {projects.length > 0 && (
+          <button className="pl-clear-btn" onClick={handleDeleteAll} title="Vaciar todos los proyectos">
+            Vaciar
+          </button>
+        )}
       </div>
 
       <div className="pl-body">
@@ -289,7 +302,12 @@ export default function ProjectsList() {
               return (
                 <li key={p.id} className="pl-item">
                   <div className="pl-item__info">
-                    <span className="pl-item__name">{p.name}</span>
+                    <div className="pl-item__name-row">
+                      {p.projectCode && (
+                        <span className="pl-item__code">{p.projectCode}</span>
+                      )}
+                      <span className="pl-item__name">{p.name}</span>
+                    </div>
                     <span className="pl-item__meta">
                       {ev
                         ? (
@@ -310,15 +328,23 @@ export default function ProjectsList() {
                     <div className="pl-assign-wrap">
                       <button
                         className={`pl-item__assign${ev ? ' pl-item__assign--active' : ''}`}
-                        title="Asignar a evento del calendario"
+                        title={ev ? `Evento: ${ev.name}` : 'Asignar a evento del calendario'}
                         onClick={() => setAssigningId(assigningId === p.id ? null : p.id)}
-                        style={ev ? { '--ev-color': ev.color || '#3b82f6' } : undefined}
                       >
-                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                          <rect x="1" y="2.5" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.4"/>
-                          <path d="M1 6.5h14" stroke="currentColor" strokeWidth="1.4"/>
-                          <path d="M5 1v3M11 1v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                        </svg>
+                        {ev ? (
+                          <span
+                            className="pl-item__assign-store"
+                            style={{ background: store.color }}
+                          >
+                            {store.name[0].toUpperCase()}
+                          </span>
+                        ) : (
+                          <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                            <rect x="1" y="2.5" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.4"/>
+                            <path d="M1 6.5h14" stroke="currentColor" strokeWidth="1.4"/>
+                            <path d="M5 1v3M11 1v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                          </svg>
+                        )}
                       </button>
                       {assigningId === p.id && (
                         <AssignDropdown

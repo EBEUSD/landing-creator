@@ -9,7 +9,7 @@ import './App.css'
 
 const TEAM_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
-function NotifyModal({ projectName, storeName, storeId, canvasCount, folderLink, teams, onClose }) {
+function NotifyModal({ projectName, projectCode, storeName, storeId, canvasCount, folderLink, teams, onClose }) {
   const [notifyIds, setNotifyIds] = useState([])
   const toggle = id => setNotifyIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
 
@@ -21,7 +21,9 @@ function NotifyModal({ projectName, storeName, storeId, canvasCount, folderLink,
 
     if (emails.length > 0) {
       const projectUrl = `${window.location.origin}/store/${storeId}`
-      const subject = `Actualización: ${projectName}`
+      const subject = projectCode
+        ? `[${projectCode}] Actualización: ${projectName}`
+        : `Actualización: ${projectName}`
       const body = [
         `Hola,`,
         ``,
@@ -232,6 +234,11 @@ function loadDraft(storeId) {
   }
 }
 
+function generateProjectCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+}
+
 export default function App() {
   const { storeId } = useParams()
   const navigate = useNavigate()
@@ -249,6 +256,7 @@ export default function App() {
   const [projectName, setProjectName] = useState(() => loadDraft(storeId)?.projectName ?? '')
   const [folderLink, setFolderLink] = useState(() => loadDraft(storeId)?.folderLink ?? '')
   const [eventId, setEventId] = useState(() => loadDraft(storeId)?.eventId ?? null)
+  const [projectCode, setProjectCode] = useState(() => loadDraft(storeId)?.projectCode ?? null)
   const [savedFlash, setSavedFlash] = useState(false)
   const [teams, setTeams] = useState([])
   const [showNotifyModal, setShowNotifyModal] = useState(false)
@@ -263,8 +271,8 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, palette, projectName, currentProjectId, folderLink, eventId }))
-  }, [canvas, palette, projectName, currentProjectId, folderLink, eventId, storeId])
+    localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, palette, projectName, currentProjectId, folderLink, eventId, projectCode }))
+  }, [canvas, palette, projectName, currentProjectId, folderLink, eventId, projectCode, storeId])
 
   // ── Palette handlers ──────────────────────────────
   const selectVariant = (categoryId, variantId) =>
@@ -312,6 +320,7 @@ export default function App() {
       bannerSide: variant.bannerSide ?? 'left',
       color: category.color,
       customBarText: null,
+      comment: '',
       notes: [{ id: crypto.randomUUID(), status: '', titulo: '', urlImagen: '', idProductos: '', idProductosMobile: '', skus: '' }],
     }])
 
@@ -373,7 +382,9 @@ export default function App() {
     const id = currentProjectIdRef.current || crypto.randomUUID()
     currentProjectIdRef.current = id
     setCurrentProjectId(id)
-    const project = { id, name, savedAt: Date.now(), canvas, palette, folderLink, eventId: eventId ?? null }
+    const code = projectCode || generateProjectCode()
+    if (!projectCode) setProjectCode(code)
+    const project = { id, name, savedAt: Date.now(), canvas, palette, folderLink, eventId: eventId ?? null, projectCode: code }
     await setDoc(doc(db, 'stores', storeId, 'projects', id), project)
     if (teams.length > 0) {
       setShowNotifyModal(true)
@@ -391,6 +402,7 @@ export default function App() {
     setProjectName('')
     setFolderLink('')
     setEventId(null)
+    setProjectCode(null)
     localStorage.removeItem(draftKey(storeId))
   }
 
@@ -422,6 +434,9 @@ export default function App() {
           </div>
 
           <div className="app-nav__center">
+            {projectCode && (
+              <span className="app-nav__code" title="ID del proyecto">{projectCode}</span>
+            )}
             <input
               className="app-nav__project-input"
               value={projectName}
@@ -521,6 +536,7 @@ export default function App() {
       {showNotifyModal && (
         <NotifyModal
           projectName={projectName.trim()}
+          projectCode={projectCode}
           storeName={store?.name ?? ''}
           storeId={storeId}
           canvasCount={canvas.length}

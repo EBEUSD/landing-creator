@@ -274,7 +274,7 @@ function EventModal({ event, onSave, onDelete, onClose }) {
 
 // ── EventDetailModal ──────────────────────────────────
 
-function EventDetailModal({ event, onEdit, onCreateProject, onOpenProject, onClose }) {
+function EventDetailModal({ event, onEdit, onDelete, onCreateProject, onOpenProject, onClose }) {
   const [projectsByStore, setProjectsByStore] = useState({})
   const [loading,         setLoading]         = useState(true)
 
@@ -387,8 +387,11 @@ function EventDetailModal({ event, onEdit, onCreateProject, onOpenProject, onClo
 
         {/* Footer */}
         <div className="cal-detail__footer">
-          <button className="btn-ghost" onClick={onClose}>Cerrar</button>
-          <button className="btn-primary" onClick={onEdit}>Editar evento</button>
+          <button className="cal-modal__del" onClick={() => onDelete(event.id)}>Eliminar</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-ghost" onClick={onClose}>Cerrar</button>
+            <button className="btn-primary" onClick={onEdit}>Editar evento</button>
+          </div>
         </div>
       </div>
     </div>
@@ -485,6 +488,7 @@ export default function Calendar() {
       currentProjectId: project.id,
       folderLink:       project.folderLink ?? '',
       eventId:          project.eventId ?? null,
+      projectCode:      project.projectCode ?? null,
     }))
     navigate(`/store/${storeId}/editor`)
   }
@@ -744,6 +748,7 @@ export default function Calendar() {
         <EventDetailModal
           event={activeModal.event}
           onEdit={() => openEdit(activeModal.event)}
+          onDelete={handleDeleteEvent}
           onCreateProject={handleCreateProject}
           onOpenProject={handleOpenProject}
           onClose={closeModal}
