@@ -970,8 +970,11 @@
   padding: 5px 8px 4px;
   text-align: left;
   border-bottom: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
   white-space: nowrap;
   background: #f3f4f6;
+
+  &:last-child { border-right: none; }
 }
 
 .cn-num    { width: 28px; text-align: center; }
@@ -993,6 +996,9 @@
   padding: 2px 4px;
   vertical-align: middle;
   border-bottom: 1px solid #d1d5db;
+  border-right: 1px solid rgba(0,0,0,0.06);
+
+  &:last-child { border-right: none; }
 
   &.cn-num {
     font-size: 10px;
@@ -2822,6 +2828,40 @@
   transition: opacity 0.12s;
 
   .sku-list__item--on & { opacity: 1; }
+}
+
+/* ── Notes table link cell ───────────────────────── */
+.cn-link-col {
+  width: 140px;
+  min-width: 100px;
+}
+
+.cn-link-cell {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.cn-link-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.cn-link-open {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: #dbeafe;
+  color: #2563eb;
+  font-size: 11px;
+  text-decoration: none;
+  line-height: 1;
+
+  &:hover { background: #bfdbfe; }
 }
 
 /* ── Notes table image cells ─────────────────────── */

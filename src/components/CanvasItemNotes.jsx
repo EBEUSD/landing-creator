@@ -323,7 +323,7 @@ const STATUS_MAP = Object.fromEntries(STATUSES.map(s => [s.value, s]))
 const EMPTY_ITEM = () => ({
   id: crypto.randomUUID(),
   status: '', titulo: '', urlImagen: '', idProductos: '', idProductosMobile: '', skus: '',
-  imageDesktop: null, imageMobile: null,
+  imageDesktop: null, imageMobile: null, linkPieza: '',
 })
 
 export function normalizeNotes(notes) {
@@ -431,6 +431,7 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
               <th className="canvas-notes__th cn-skus">SKUs</th>
               <th className="canvas-notes__th cn-img-col">Img DK</th>
               <th className="canvas-notes__th cn-img-col">Img MB</th>
+              <th className="canvas-notes__th cn-link-col">Link pieza</th>
               <th className="canvas-notes__th cn-del-col"></th>
             </tr>
           </thead>
@@ -508,6 +509,27 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
                       onUpload={file => handleUploadImg(row.id, 'mobile', file)}
                       onClear={() => updateItem(row.id, 'imageMobile', null)}
                     />
+                  </td>
+                  <td className="canvas-notes__td cn-link-col">
+                    <div className="cn-link-cell">
+                      <input
+                        className="canvas-notes__input cn-link-input"
+                        type="text"
+                        value={row.linkPieza || ''}
+                        onChange={e => updateItem(row.id, 'linkPieza', e.target.value)}
+                        placeholder="Pegar link..."
+                        spellCheck={false}
+                      />
+                      {row.linkPieza && (
+                        <a
+                          className="cn-link-open"
+                          href={/^https?:\/\//i.test(row.linkPieza) ? row.linkPieza : `https://${row.linkPieza}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Abrir link"
+                        >↗</a>
+                      )}
+                    </div>
                   </td>
                   <td className="canvas-notes__td cn-del-col">
                     <button
