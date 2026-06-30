@@ -43,16 +43,7 @@ export default function AllProjects() {
     : allProjects
 
   const handleOpen = (p) => {
-    localStorage.setItem(draftKey(p.store.id), JSON.stringify({
-      canvas:           p.canvas,
-      palette:          p.palette,
-      projectName:      p.name,
-      currentProjectId: p.id,
-      folderLink:       p.folderLink ?? '',
-      eventId:          p.eventId ?? null,
-      projectCode:      p.projectCode ?? null,
-    }))
-    navigate(`/store/${p.store.id}/editor`)
+    navigate(`/store/${p.store.id}/editor?p=${p.id}`)
   }
 
   return (

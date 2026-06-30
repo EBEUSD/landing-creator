@@ -481,16 +481,7 @@ export default function Calendar() {
   }
 
   const handleOpenProject = (storeId, project) => {
-    localStorage.setItem(draftKey(storeId), JSON.stringify({
-      canvas:           project.canvas,
-      palette:          project.palette,
-      projectName:      project.name,
-      currentProjectId: project.id,
-      folderLink:       project.folderLink ?? '',
-      eventId:          project.eventId ?? null,
-      projectCode:      project.projectCode ?? null,
-    }))
-    navigate(`/store/${storeId}/editor`)
+    navigate(`/store/${storeId}/editor?p=${project.id}`)
   }
 
   const weeks       = getCalendarWeeks(viewYear, viewMonth)

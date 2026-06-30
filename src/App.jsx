@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { doc, setDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { doc, setDoc, getDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore'
 import { db } from './firebase'
 import Palette from './components/Palette'
 import Canvas from './components/Canvas'
@@ -9,7 +9,7 @@ import './App.css'
 
 const TEAM_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
-function NotifyModal({ projectName, projectCode, storeName, storeId, canvasCount, folderLink, teams, onClose }) {
+function NotifyModal({ projectName, projectCode, projectId, storeName, storeId, canvasCount, folderLink, teams, onClose }) {
   const [notifyIds, setNotifyIds] = useState([])
   const toggle = id => setNotifyIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
 
@@ -20,7 +20,7 @@ function NotifyModal({ projectName, projectCode, storeName, storeId, canvasCount
       .filter(Boolean)
 
     if (emails.length > 0) {
-      const projectUrl = `${window.location.origin}/store/${storeId}`
+      const projectUrl = window.location.href
       const subject = projectCode
         ? `[${projectCode}] Actualización: ${projectName}`
         : `Actualización: ${projectName}`
@@ -31,7 +31,9 @@ function NotifyModal({ projectName, projectCode, storeName, storeId, canvasCount
         ``,
         `▸ Tienda: ${storeName}`,
         `▸ Componentes: ${canvasCount}`,
-        folderLink ? `▸ Carpeta: ${folderLink}` : '',
+        projectId   ? `▸ ID: ${projectId}` : '',
+        projectCode ? `▸ Código: ${projectCode}` : '',
+        folderLink  ? `▸ Carpeta: ${folderLink}` : '',
         `▸ Ver proyecto: ${projectUrl}`,
         ``,
         `— Landing Creator`,
@@ -242,24 +244,52 @@ function generateProjectCode() {
 export default function App() {
   const { storeId } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const urlProjectId = searchParams.get('p')
   const store = STORES.find(s => s.id === storeId)
 
-  const [palette, setPalette] = useState(() => {
-    const d = loadDraft(storeId)
-    return d?.palette ? mergePaletteWithDefaults(d.palette) : DEFAULT_PALETTE
-  })
-  const [canvas, setCanvas] = useState(() => loadDraft(storeId)?.canvas ?? [])
+  const draft = urlProjectId ? null : loadDraft(storeId)
+
+  const [palette, setPalette] = useState(() =>
+    draft?.palette ? mergePaletteWithDefaults(draft.palette) : DEFAULT_PALETTE
+  )
+  const [canvas, setCanvas] = useState(() => draft?.canvas ?? [])
   const [fullscreen, setFullscreen] = useState(false)
 
-  const [currentProjectId, setCurrentProjectId] = useState(() => loadDraft(storeId)?.currentProjectId ?? null)
-  const currentProjectIdRef = useRef(loadDraft(storeId)?.currentProjectId ?? null)
-  const [projectName, setProjectName] = useState(() => loadDraft(storeId)?.projectName ?? '')
-  const [folderLink, setFolderLink] = useState(() => loadDraft(storeId)?.folderLink ?? '')
-  const [eventId, setEventId] = useState(() => loadDraft(storeId)?.eventId ?? null)
-  const [projectCode, setProjectCode] = useState(() => loadDraft(storeId)?.projectCode ?? null)
+  const [currentProjectId, setCurrentProjectId] = useState(() => urlProjectId ?? draft?.currentProjectId ?? null)
+  const currentProjectIdRef = useRef(urlProjectId ?? draft?.currentProjectId ?? null)
+  const [projectName, setProjectName] = useState(() => draft?.projectName ?? '')
+  const [folderLink, setFolderLink] = useState(() => draft?.folderLink ?? '')
+  const [eventId, setEventId] = useState(() => draft?.eventId ?? null)
+  const [projectCode, setProjectCode] = useState(() => draft?.projectCode ?? null)
+  const [loadingProject, setLoadingProject] = useState(!!urlProjectId)
   const [savedFlash, setSavedFlash] = useState(false)
   const [teams, setTeams] = useState([])
   const [showNotifyModal, setShowNotifyModal] = useState(false)
+
+  const loadedProjectIdRef = useRef(null)
+
+  useEffect(() => {
+    if (!urlProjectId || urlProjectId === loadedProjectIdRef.current) return
+    loadedProjectIdRef.current = urlProjectId
+    setLoadingProject(true)
+    getDoc(doc(db, 'stores', storeId, 'projects', urlProjectId))
+      .then(snap => {
+        if (snap.exists()) {
+          const p = snap.data()
+          setCanvas(p.canvas || [])
+          setPalette(mergePaletteWithDefaults(p.palette || DEFAULT_PALETTE))
+          setProjectName(p.name || '')
+          setCurrentProjectId(urlProjectId)
+          currentProjectIdRef.current = urlProjectId
+          setFolderLink(p.folderLink || '')
+          setEventId(p.eventId || null)
+          setProjectCode(p.projectCode || null)
+        }
+        setLoadingProject(false)
+      })
+      .catch(() => setLoadingProject(false))
+  }, [urlProjectId, storeId])
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -382,10 +412,12 @@ export default function App() {
     const id = currentProjectIdRef.current || crypto.randomUUID()
     currentProjectIdRef.current = id
     setCurrentProjectId(id)
+    loadedProjectIdRef.current = id
     const code = projectCode || generateProjectCode()
     if (!projectCode) setProjectCode(code)
     const project = { id, name, savedAt: Date.now(), canvas, palette, folderLink, eventId: eventId ?? null, projectCode: code }
     await setDoc(doc(db, 'stores', storeId, 'projects', id), project)
+    setSearchParams({ p: id }, { replace: true })
     if (teams.length > 0) {
       setShowNotifyModal(true)
     } else {
@@ -396,6 +428,7 @@ export default function App() {
 
   const handleNew = () => {
     currentProjectIdRef.current = null
+    loadedProjectIdRef.current = null
     setCanvas([])
     setPalette(DEFAULT_PALETTE)
     setCurrentProjectId(null)
@@ -404,6 +437,17 @@ export default function App() {
     setEventId(null)
     setProjectCode(null)
     localStorage.removeItem(draftKey(storeId))
+    setSearchParams({}, { replace: true })
+  }
+
+  if (loadingProject) {
+    return (
+      <div className="app-loading">
+        <span className="app-loading__dot" />
+        <span className="app-loading__dot" />
+        <span className="app-loading__dot" />
+      </div>
+    )
   }
 
   return (
@@ -537,6 +581,7 @@ export default function App() {
         <NotifyModal
           projectName={projectName.trim()}
           projectCode={projectCode}
+          projectId={currentProjectIdRef.current}
           storeName={store?.name ?? ''}
           storeId={storeId}
           canvasCount={canvas.length}
