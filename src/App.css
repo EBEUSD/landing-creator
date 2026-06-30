@@ -433,10 +433,10 @@
 
 /* ── Category card ───────────────────────────────── */
 .cat-card {
-  border: 1px solid var(--border);
+  border: 1px solid var(--cat-border, var(--border));
   border-radius: 6px;
   overflow: hidden;
-  background: var(--bg);
+  background: var(--cat-bg, var(--bg));
   flex-shrink: 0;
   transition: box-shadow 0.15s;
 

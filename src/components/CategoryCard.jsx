@@ -1,5 +1,16 @@
 const BLACK = '#0a0a0a'
 
+const PASTELS = [
+  { bg: '#fce7f3', border: '#f9a8d4' }, // rose
+  { bg: '#dbeafe', border: '#93c5fd' }, // blue
+  { bg: '#dcfce7', border: '#86efac' }, // green
+  { bg: '#fef9c3', border: '#fde047' }, // yellow
+  { bg: '#ede9fe', border: '#c4b5fd' }, // violet
+  { bg: '#ffedd5', border: '#fdba74' }, // orange
+  { bg: '#ccfbf1', border: '#5eead4' }, // teal
+  { bg: '#e0e7ff', border: '#a5b4fc' }, // indigo
+]
+
 function DiagLines() {
   return (
     <svg
@@ -61,7 +72,8 @@ function CompactPreview({ layout, cols, name, width, height, widthMb, heightMb, 
   )
 }
 
-export default function CategoryCard({ category, onSelectVariant, onUpdateVariant, onUpdateCategory, onAdd }) {
+export default function CategoryCard({ category, index = 0, onSelectVariant, onUpdateVariant, onUpdateCategory, onAdd }) {
+  const pastel = PASTELS[index % PASTELS.length]
   const variant = category.variants.find(v => v.id === category.selectedVariantId)
 
   const setVariantField = (field, value) =>
@@ -80,6 +92,7 @@ export default function CategoryCard({ category, onSelectVariant, onUpdateVarian
       className="cat-card"
       draggable
       onDragStart={handleDragStart}
+      style={{ '--cat-bg': pastel.bg, '--cat-border': pastel.border }}
     >
       <div className="cat-card__head">
         <span className="cat-card__name">{category.name}</span>

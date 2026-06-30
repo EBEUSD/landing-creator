@@ -24,10 +24,11 @@ export default function Palette({ categories, onSelectVariant, onUpdateVariant, 
   return (
     <div className="palette">
       <div className="palette__list">
-        {categories.map(cat => (
+        {categories.map((cat, i) => (
           <CategoryCard
             key={cat.id}
             category={cat}
+            index={i}
             onSelectVariant={onSelectVariant}
             onUpdateVariant={onUpdateVariant}
             onUpdateCategory={onUpdateCategory}
