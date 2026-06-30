@@ -70,8 +70,17 @@ export default function CategoryCard({ category, onSelectVariant, onUpdateVarian
   const setMobileField = (field, raw) =>
     onUpdateVariant(category.id, variant.id, { [field]: raw === '' ? null : Math.max(1, Number(raw)) })
 
+  const handleDragStart = (e) => {
+    e.dataTransfer.effectAllowed = 'copy'
+    e.dataTransfer.setData('application/landing-creator', JSON.stringify({ category, variant }))
+  }
+
   return (
-    <div className="cat-card">
+    <div
+      className="cat-card"
+      draggable
+      onDragStart={handleDragStart}
+    >
       <div className="cat-card__head">
         <span className="cat-card__name">{category.name}</span>
         {category.variants.length > 1 && (

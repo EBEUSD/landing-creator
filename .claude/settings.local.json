@@ -6,7 +6,8 @@
       "PowerShell(firebase --version 2>&1)",
       "PowerShell(npm install -g firebase-tools 2>&1)",
       "Skill(artifact-design)",
-      "Skill(artifact-design:*)"
+      "Skill(artifact-design:*)",
+      "Bash(npx vite *)"
     ]
   }
 }

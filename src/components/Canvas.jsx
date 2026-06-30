@@ -11,49 +11,97 @@ function autoBarText(item) {
   return parts.join(' ')
 }
 
-export default function Canvas({ items, fullscreen, storeId, onRemove, onDuplicate, onMove, onUpdateLabel, onUpdateBarText, onUpdateDims, onUpdateNotes }) {
-  const [editingId, setEditingId] = useState(null)
-  const [editValue, setEditValue] = useState('')
+export default function Canvas({ items, fullscreen, storeId, onRemove, onDuplicate, onMove, onReorder, onUpdateLabel, onUpdateBarText, onUpdateDims, onUpdateNotes, onDropAdd }) {
+  const [editingId, setEditingId]     = useState(null)
+  const [editValue, setEditValue]     = useState('')
   const [barEditingId, setBarEditingId] = useState(null)
   const [barEditValue, setBarEditValue] = useState('')
 
-  const startEdit = (item) => {
-    setEditingId(item.instanceId)
-    setEditValue(item.label || item.name)
-  }
+  // palette drop
+  const [paletteDragOver, setPaletteDragOver] = useState(false)
 
+  // canvas reorder
+  const [reorderFrom, setReorderFrom] = useState(null)
+  const [reorderOver, setReorderOver] = useState(null)
+
+  // ── edit handlers ─────────────────────────────────
+  const startEdit = (item) => { setEditingId(item.instanceId); setEditValue(item.label || item.name) }
   const commitEdit = (instanceId) => {
     const item = items.find(i => i.instanceId === instanceId)
-    const trimmed = editValue.trim()
-    onUpdateLabel(instanceId, trimmed || item?.name || '')
+    onUpdateLabel(instanceId, editValue.trim() || item?.name || '')
     setEditingId(null)
   }
-
   const handleKeyDown = (e, instanceId) => {
     if (e.key === 'Enter') commitEdit(instanceId)
     if (e.key === 'Escape') setEditingId(null)
   }
-
-  const startBarEdit = (item) => {
-    setBarEditingId(item.instanceId)
-    setBarEditValue(item.customBarText ?? autoBarText(item))
-  }
-
+  const startBarEdit = (item) => { setBarEditingId(item.instanceId); setBarEditValue(item.customBarText ?? autoBarText(item)) }
   const commitBarEdit = (instanceId) => {
     const item = items.find(i => i.instanceId === instanceId)
-    const trimmed = barEditValue.trim()
-    onUpdateBarText(instanceId, trimmed || autoBarText(item))
+    onUpdateBarText(instanceId, barEditValue.trim() || autoBarText(item))
     setBarEditingId(null)
   }
-
   const handleBarKeyDown = (e, instanceId) => {
     if (e.key === 'Enter') commitBarEdit(instanceId)
     if (e.key === 'Escape') setBarEditingId(null)
   }
 
+  // ── palette drop handlers ─────────────────────────
+  const handlePaletteDragOver = (e) => {
+    if (!e.dataTransfer.types.includes('application/landing-creator')) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    setPaletteDragOver(true)
+  }
+  const handlePaletteDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) setPaletteDragOver(false)
+  }
+  const handlePaletteDrop = (e) => {
+    e.preventDefault()
+    setPaletteDragOver(false)
+    try {
+      const { category, variant } = JSON.parse(e.dataTransfer.getData('application/landing-creator'))
+      onDropAdd(category, variant)
+    } catch {}
+  }
+
+  // ── canvas reorder handlers ───────────────────────
+  const handleItemDragStart = (e, index) => {
+    e.stopPropagation()
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('application/canvas-reorder', String(index))
+    setReorderFrom(index)
+  }
+  const handleItemDragOver = (e, index) => {
+    if (!e.dataTransfer.types.includes('application/canvas-reorder')) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    setReorderOver(index)
+    setPaletteDragOver(false)
+  }
+  const handleItemDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) setReorderOver(null)
+  }
+  const handleItemDrop = (e, index) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const from = Number(e.dataTransfer.getData('application/canvas-reorder'))
+    if (!isNaN(from) && from !== index) onReorder(from, index)
+    setReorderFrom(null)
+    setReorderOver(null)
+  }
+  const handleItemDragEnd = () => { setReorderFrom(null); setReorderOver(null) }
+
+  // ── empty state ───────────────────────────────────
   if (items.length === 0) {
     return (
-      <div className="canvas-empty">
+      <div
+        className={`canvas-empty${paletteDragOver ? ' canvas-empty--dragover' : ''}`}
+        onDragOver={handlePaletteDragOver}
+        onDragLeave={handlePaletteDragLeave}
+        onDrop={handlePaletteDrop}
+      >
         <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="4" y="4" width="32" height="32" rx="3" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 3" />
           <path d="M20 14v12M14 20h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -64,12 +112,27 @@ export default function Canvas({ items, fullscreen, storeId, onRemove, onDuplica
   }
 
   return (
-    <div className={`canvas-scroll${fullscreen ? ' canvas-scroll--fullscreen' : ''}`}>
+    <div
+      className={`canvas-scroll${fullscreen ? ' canvas-scroll--fullscreen' : ''}${paletteDragOver ? ' canvas-scroll--dragover' : ''}`}
+      onDragOver={handlePaletteDragOver}
+      onDragLeave={handlePaletteDragLeave}
+      onDrop={handlePaletteDrop}
+    >
       <div className={`canvas-page${fullscreen ? ' canvas-page--fullscreen' : ''}`}>
         {items.map((item, index) => (
-          <div key={item.instanceId} className="canvas-item">
+          <div
+            key={item.instanceId}
+            className={`canvas-item${reorderOver === index ? ' canvas-item--drop-target' : ''}${reorderFrom === index ? ' canvas-item--dragging' : ''}`}
+            draggable={!fullscreen}
+            onDragStart={!fullscreen ? (e) => handleItemDragStart(e, index) : undefined}
+            onDragOver={!fullscreen ? (e) => handleItemDragOver(e, index) : undefined}
+            onDragLeave={!fullscreen ? handleItemDragLeave : undefined}
+            onDrop={!fullscreen ? (e) => handleItemDrop(e, index) : undefined}
+            onDragEnd={!fullscreen ? handleItemDragEnd : undefined}
+          >
             {!fullscreen && (
               <div className="canvas-item__bar">
+                <span className="canvas-item__drag-handle" title="Arrastrar para reordenar">⠿</span>
                 {barEditingId === item.instanceId ? (
                   <input
                     className="canvas-item__label-input"
@@ -88,7 +151,7 @@ export default function Canvas({ items, fullscreen, storeId, onRemove, onDuplica
                   <button className="canvas-item__btn" onClick={() => onMove(index, -1)} disabled={index === 0} title="Subir">↑</button>
                   <button className="canvas-item__btn" onClick={() => onMove(index, 1)} disabled={index === items.length - 1} title="Bajar">↓</button>
                   <button className="canvas-item__btn" onClick={() => onDuplicate(item.instanceId)} title="Duplicar">⎘</button>
-                  <button className="canvas-item__btn canvas-item__btn--danger" onClick={() => onRemove(item.instanceId)} title="Eliminar">×</button>
+                  <button className="canvas-item__btn canvas-item__btn--danger" onClick={() => { if (window.confirm('¿Eliminar este componente del canvas?')) onRemove(item.instanceId) }} title="Eliminar">×</button>
                 </div>
               </div>
             )}

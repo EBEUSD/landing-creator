@@ -1,11 +1,92 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { doc, setDoc } from 'firebase/firestore'
+import { doc, setDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore'
 import { db } from './firebase'
 import Palette from './components/Palette'
 import Canvas from './components/Canvas'
 import { STORES, draftKey } from './stores'
 import './App.css'
+
+const TEAM_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+
+function NotifyModal({ projectName, storeName, storeId, canvasCount, folderLink, teams, onClose }) {
+  const [notifyIds, setNotifyIds] = useState([])
+  const toggle = id => setNotifyIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
+
+  const handleNotify = () => {
+    const emails = teams
+      .filter(t => notifyIds.includes(t.id))
+      .flatMap(t => (t.members || []).map(m => m.email))
+      .filter(Boolean)
+
+    if (emails.length > 0) {
+      const projectUrl = `${window.location.origin}/store/${storeId}`
+      const subject = `Actualización: ${projectName}`
+      const body = [
+        `Hola,`,
+        ``,
+        `Se actualizó el proyecto "${projectName}" en Landing Creator.`,
+        ``,
+        `▸ Tienda: ${storeName}`,
+        `▸ Componentes: ${canvasCount}`,
+        folderLink ? `▸ Carpeta: ${folderLink}` : '',
+        `▸ Ver proyecto: ${projectUrl}`,
+        ``,
+        `— Landing Creator`,
+      ].filter(Boolean).join('\n')
+      window.open(
+        `mailto:${emails.join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+        '_blank'
+      )
+    }
+    onClose()
+  }
+
+  return (
+    <div className="app-notify-overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+      <div className="app-notify-modal">
+        <div className="app-notify__head">
+          <div className="app-notify__check">✓</div>
+          <div>
+            <div className="app-notify__title">Proyecto guardado</div>
+            <div className="app-notify__sub">{projectName} · {storeName} · {canvasCount} componente{canvasCount !== 1 ? 's' : ''}</div>
+          </div>
+          <button className="app-notify__close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="app-notify__body">
+          <p className="app-notify__label">Notificar actualización a:</p>
+          <div className="app-notify__teams">
+            {teams.map(t => (
+              <button
+                key={t.id}
+                type="button"
+                className={`app-notify__team${notifyIds.includes(t.id) ? ' app-notify__team--active' : ''}`}
+                style={{ '--tc': t.color || TEAM_COLORS[0] }}
+                onClick={() => toggle(t.id)}
+              >
+                <span className="app-notify__team-dot" style={{ background: t.color || TEAM_COLORS[0] }} />
+                {t.name}
+                <span className="app-notify__team-count">{(t.members || []).length}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="app-notify__actions">
+          <button className="btn-ghost" onClick={onClose}>Omitir</button>
+          <button
+            className="btn-primary"
+            onClick={handleNotify}
+            disabled={notifyIds.length === 0}
+          >
+            Notificar{notifyIds.length > 0 ? ` (${notifyIds.length})` : ''}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const DEFAULT_PALETTE = [
   {
@@ -167,11 +248,23 @@ export default function App() {
   const currentProjectIdRef = useRef(loadDraft(storeId)?.currentProjectId ?? null)
   const [projectName, setProjectName] = useState(() => loadDraft(storeId)?.projectName ?? '')
   const [folderLink, setFolderLink] = useState(() => loadDraft(storeId)?.folderLink ?? '')
+  const [eventId, setEventId] = useState(() => loadDraft(storeId)?.eventId ?? null)
   const [savedFlash, setSavedFlash] = useState(false)
+  const [teams, setTeams] = useState([])
+  const [showNotifyModal, setShowNotifyModal] = useState(false)
 
   useEffect(() => {
-    localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, palette, projectName, currentProjectId, folderLink }))
-  }, [canvas, palette, projectName, currentProjectId, folderLink, storeId])
+    const unsub = onSnapshot(
+      query(collection(db, 'teams'), orderBy('createdAt')),
+      snap => setTeams(snap.docs.map(d => ({ ...d.data(), id: d.id }))),
+      () => {}
+    )
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, palette, projectName, currentProjectId, folderLink, eventId }))
+  }, [canvas, palette, projectName, currentProjectId, folderLink, eventId, storeId])
 
   // ── Palette handlers ──────────────────────────────
   const selectVariant = (categoryId, variantId) =>
@@ -242,6 +335,14 @@ export default function App() {
       item.instanceId === instanceId ? { ...item, notes } : item
     ))
 
+  const reorderCanvas = (from, to) =>
+    setCanvas(prev => {
+      const next = [...prev]
+      const [item] = next.splice(from, 1)
+      next.splice(to, 0, item)
+      return next
+    })
+
   const removeFromCanvas = (instanceId) =>
     setCanvas(prev => prev.filter(i => i.instanceId !== instanceId))
 
@@ -272,10 +373,14 @@ export default function App() {
     const id = currentProjectIdRef.current || crypto.randomUUID()
     currentProjectIdRef.current = id
     setCurrentProjectId(id)
-    const project = { id, name, savedAt: Date.now(), canvas, palette, folderLink }
+    const project = { id, name, savedAt: Date.now(), canvas, palette, folderLink, eventId: eventId ?? null }
     await setDoc(doc(db, 'stores', storeId, 'projects', id), project)
-    setSavedFlash(true)
-    setTimeout(() => setSavedFlash(false), 2000)
+    if (teams.length > 0) {
+      setShowNotifyModal(true)
+    } else {
+      setSavedFlash(true)
+      setTimeout(() => setSavedFlash(false), 2000)
+    }
   }
 
   const handleNew = () => {
@@ -285,6 +390,7 @@ export default function App() {
     setCurrentProjectId(null)
     setProjectName('')
     setFolderLink('')
+    setEventId(null)
     localStorage.removeItem(draftKey(storeId))
   }
 
@@ -406,10 +512,27 @@ export default function App() {
             onUpdateBarText={updateCanvasBarText}
             onUpdateDims={updateCanvasDims}
             onUpdateNotes={updateCanvasNotes}
+            onDropAdd={addToCanvas}
+            onReorder={reorderCanvas}
           />
         </main>
       </div>
 
+      {showNotifyModal && (
+        <NotifyModal
+          projectName={projectName.trim()}
+          storeName={store?.name ?? ''}
+          storeId={storeId}
+          canvasCount={canvas.length}
+          folderLink={folderLink}
+          teams={teams}
+          onClose={() => {
+            setShowNotifyModal(false)
+            setSavedFlash(true)
+            setTimeout(() => setSavedFlash(false), 2000)
+          }}
+        />
+      )}
     </div>
   )
 }

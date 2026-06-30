@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { STORES } from '../stores'
+import TeamsModal from '../components/TeamsModal'
 
 export default function StorePicker() {
   const navigate = useNavigate()
+  const [showTeams, setShowTeams] = useState(false)
 
   return (
     <div className="sp-root">
@@ -31,6 +34,28 @@ export default function StorePicker() {
           </button>
         ))}
       </div>
+
+      <div className="sp-footer">
+        <button className="sp-calendar-btn" onClick={() => navigate('/calendar')}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <rect x="1" y="2.5" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.4"/>
+            <path d="M1 6.5h14" stroke="currentColor" strokeWidth="1.4"/>
+            <path d="M5 1v3M11 1v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+          </svg>
+          Calendario de proyectos
+        </button>
+        <button className="sp-calendar-btn" onClick={() => setShowTeams(true)}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.3"/>
+            <circle cx="11" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.3"/>
+            <path d="M1 13c0-2.2 2.2-4 5-4s5 1.8 5 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            <path d="M11 9c1.5.3 3 1.5 3 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+          </svg>
+          Equipos
+        </button>
+      </div>
+
+      {showTeams && <TeamsModal onClose={() => setShowTeams(false)} />}
     </div>
   )
 }
