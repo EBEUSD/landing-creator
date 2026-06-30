@@ -977,6 +977,7 @@
   &:last-child { border-right: none; }
 }
 
+.cn-drag-col { width: 20px; padding: 0 !important; }
 .cn-num    { width: 28px; text-align: center; }
 .cn-status { width: 130px; }
 .cn-titulo { width: 18%; }
@@ -990,6 +991,28 @@
 
   &:not(:last-child) td { border-bottom: 1px solid rgba(0,0,0,0.05); }
   &:hover td { filter: brightness(0.97); }
+  &:hover .cn-drag-handle { opacity: 1; }
+}
+
+.canvas-notes__row--dragging { opacity: 0.35; }
+
+.canvas-notes__row--dragover td {
+  border-top: 2px solid #3b82f6 !important;
+}
+
+.cn-drag-handle {
+  display: block;
+  width: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: #9ca3af;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.12s;
+  user-select: none;
+  line-height: 1;
+
+  &:active { cursor: grabbing; }
 }
 
 .canvas-notes__td {

@@ -338,6 +338,33 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
   const [pickerRowId, setPickerRowId] = useState(null)
   const [manualRowId, setManualRowId] = useState(null)
   const [uploadingMap, setUploadingMap] = useState({})
+  const [dragRowId, setDragRowId] = useState(null)
+  const [dragOverId, setDragOverId] = useState(null)
+
+  const handleDragStart = (e, rowId) => {
+    e.stopPropagation()
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('application/notes-row', rowId)
+    setDragRowId(rowId)
+  }
+  const handleDragOver = (e, rowId) => {
+    if (!dragRowId) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (rowId !== dragOverId) setDragOverId(rowId)
+  }
+  const handleDrop = (e, targetId) => {
+    e.preventDefault()
+    if (!dragRowId || dragRowId === targetId) return
+    const from = rows.findIndex(r => r.id === dragRowId)
+    const to   = rows.findIndex(r => r.id === targetId)
+    const next = [...rows]
+    next.splice(to, 0, next.splice(from, 1)[0])
+    onUpdate(next)
+    setDragRowId(null)
+    setDragOverId(null)
+  }
+  const handleDragEnd = () => { setDragRowId(null); setDragOverId(null) }
 
   const updateItem = (id, field, value) =>
     onUpdate(rows.map(r => r.id === id ? { ...r, [field]: value } : r))
@@ -422,6 +449,7 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
         <table className="canvas-notes__table">
           <thead>
             <tr>
+              <th className="canvas-notes__th cn-drag-col"></th>
               <th className="canvas-notes__th cn-num">#</th>
               <th className="canvas-notes__th cn-status">Estado</th>
               <th className="canvas-notes__th cn-titulo">Título</th>
@@ -440,8 +468,25 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
               const st = STATUS_MAP[row.status || ''] || STATUS_MAP['']
               const skuTokens = row.skus.trim() ? row.skus.split('///').map(s => s.trim()).filter(Boolean) : []
 
+              const isDragging  = dragRowId  === row.id
+              const isDragOver  = dragOverId === row.id && dragRowId !== row.id
+
               return (
-                <tr key={row.id} className="canvas-notes__row" style={{ '--row-bg': st.rowBg }}>
+                <tr
+                  key={row.id}
+                  className={`canvas-notes__row${isDragging ? ' canvas-notes__row--dragging' : ''}${isDragOver ? ' canvas-notes__row--dragover' : ''}`}
+                  style={{ '--row-bg': st.rowBg }}
+                  onDragOver={e => handleDragOver(e, row.id)}
+                  onDrop={e => handleDrop(e, row.id)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <td
+                    className="canvas-notes__td cn-drag-col"
+                    draggable
+                    onDragStart={e => handleDragStart(e, row.id)}
+                  >
+                    <span className="cn-drag-handle" title="Arrastrar para reordenar">⠿</span>
+                  </td>
                   <td className="canvas-notes__td cn-num">{idx + 1}</td>
                   <td className="canvas-notes__td cn-status">
                     <select
