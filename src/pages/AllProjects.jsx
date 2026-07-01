@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { collection, query, orderBy, onSnapshot, getDocs } from 'firebase/firestore'
+import { collection, query, orderBy, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import { STORES, draftKey } from '../stores'
 
@@ -29,19 +29,18 @@ export default function AllProjects() {
   }, [])
 
   useEffect(() => {
-    let loaded = 0
-    const unsubs = STORES.map(store => {
-      const q = query(collection(db, 'stores', store.id, 'projects'), orderBy('savedAt', 'desc'))
-      return onSnapshot(q, snap => {
-        setProjectsByStore(prev => ({
-          ...prev,
-          [store.id]: snap.docs.map(d => d.data()),
-        }))
-        loaded++
-        if (loaded >= STORES.length) setLoading(false)
-      }, () => { loaded++; if (loaded >= STORES.length) setLoading(false) })
+    Promise.all(
+      STORES.map(store =>
+        getDocs(query(collection(db, 'stores', store.id, 'projects'), orderBy('savedAt', 'desc')))
+          .then(snap => ({ storeId: store.id, docs: snap.docs.map(d => d.data()) }))
+          .catch(() => ({ storeId: store.id, docs: [] }))
+      )
+    ).then(results => {
+      const map = {}
+      results.forEach(r => { map[r.storeId] = r.docs })
+      setProjectsByStore(map)
+      setLoading(false)
     })
-    return () => unsubs.forEach(u => u())
   }, [])
 
   const allProjects = STORES.flatMap(store =>

@@ -595,6 +595,14 @@ export default function App() {
           </div>
 
           <div className="app-nav__actions">
+            {!currentProjectId && (
+              <span className="app-nav__save-hint">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 2a6 6 0 100 12A6 6 0 008 2zm0 3v4m0 2v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                Guardá antes de salir — el autoguardado se activa después del primer guardado
+              </span>
+            )}
             <button className="btn-ghost" onClick={handleNew}>Nuevo</button>
             <button
               className="btn-primary"
