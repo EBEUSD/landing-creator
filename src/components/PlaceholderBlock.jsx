@@ -1,5 +1,13 @@
 import { useState } from 'react'
 
+function lightenColor(hex, amount) {
+  const n = parseInt(hex.replace('#', ''), 16)
+  const r = Math.min(255, (n >> 16) + amount)
+  const g = Math.min(255, ((n >> 8) & 0xff) + amount)
+  const b = Math.min(255, (n & 0xff) + amount)
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')
+}
+
 function DiagLines({ className = 'ph__lines' }) {
   return (
     <svg
@@ -43,7 +51,7 @@ function LabelArea({
       >
         {displayLabel}///
       </span>
-      {dimsEditing ? (
+      {dims && (dimsEditing ? (
         <input
           className="ph__dims-input"
           value={dimsEditValue}
@@ -60,7 +68,7 @@ function LabelArea({
         >
           {dims}
         </span>
-      )}
+      ))}
     </div>
   )
 }
@@ -162,6 +170,7 @@ export default function PlaceholderBlock({
   if (layout === 'carousel') {
     const cw = cardWidth || 380
     const ch = cardHeight || 500
+    const cardColor = lightenColor(color, 28)
 
     const bannerEl = (
       <div
@@ -178,27 +187,11 @@ export default function PlaceholderBlock({
     )
 
     const cardsEl = Array.from({ length: cols }, (_, i) => (
-      <div key={i} className="ph-carousel__card" style={{ backgroundColor: color, flex: cw }}>
+      <div key={i} className="ph-carousel__card" style={{ backgroundColor: cardColor, flex: cw }}>
         <DiagLines />
         {i === 0 && (
           <div className="ph__label">
-            {cardDimsEditing ? (
-              <input
-                className="ph__dims-input"
-                value={cardDimsEditValue}
-                onChange={e => setCardDimsEditValue(e.target.value)}
-                onBlur={commitCardDimsEdit}
-                onKeyDown={handleCardDimsKeyDown}
-                autoFocus
-              />
-            ) : (
-              <span
-                className={`ph__dims${onCardDimsCommit ? ' ph__dims--editable' : ''}`}
-                onClick={onCardDimsCommit ? startCardDimsEdit : undefined}
-              >
-                {cw}x{ch}px
-              </span>
-            )}
+            <span className="ph__dims">Carrusel</span>
           </div>
         )}
       </div>
@@ -214,31 +207,11 @@ export default function PlaceholderBlock({
   if (layout === 'shop') {
     const cw = cardWidth || 600
     const ch = cardHeight || 250
+    const cardColor = lightenColor(color, 28)
 
     const sideCards = Array.from({ length: cols }, (_, i) => (
-      <div key={i} className="ph-shop__card" style={{ aspectRatio: `${cw} / ${ch}`, backgroundColor: color }}>
+      <div key={i} className="ph-shop__card" style={{ aspectRatio: `${cw} / ${ch}`, backgroundColor: cardColor }}>
         <DiagLines />
-        {i === 0 && (
-          <div className="ph__label">
-            {cardDimsEditing ? (
-              <input
-                className="ph__dims-input"
-                value={cardDimsEditValue}
-                onChange={e => setCardDimsEditValue(e.target.value)}
-                onBlur={commitCardDimsEdit}
-                onKeyDown={handleCardDimsKeyDown}
-                autoFocus
-              />
-            ) : (
-              <span
-                className={`ph__dims${onCardDimsCommit ? ' ph__dims--editable' : ''}`}
-                onClick={onCardDimsCommit ? startCardDimsEdit : undefined}
-              >
-                {cw}x{ch}px
-              </span>
-            )}
-          </div>
-        )}
       </div>
     ))
 
@@ -271,7 +244,7 @@ export default function PlaceholderBlock({
             {i === midCol && (
               <LabelArea
                 {...labelAreaProps}
-                dims={`${width}x${height}px`}
+                dims={null}
               />
             )}
           </div>

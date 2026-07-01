@@ -462,9 +462,7 @@ export default function App() {
               onClick={() => navigate(`/store/${storeId}`)}
               title="Volver a proyectos"
             >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              menú
             </button>
             {store && (
               <span
