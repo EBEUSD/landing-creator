@@ -4,6 +4,7 @@ import { doc, setDoc, getDoc, collection, query, orderBy, onSnapshot } from 'fir
 import { db } from './firebase'
 import Palette from './components/Palette'
 import Canvas from './components/Canvas'
+import CanvasQuickNav from './components/CanvasQuickNav'
 import { STORES, draftKey } from './stores'
 import './App.css'
 
@@ -576,6 +577,8 @@ export default function App() {
           />
         </main>
       </div>
+
+      {!fullscreen && <CanvasQuickNav canvas={canvas} />}
 
       {showNotifyModal && (
         <NotifyModal

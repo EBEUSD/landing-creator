@@ -122,6 +122,7 @@ export default function Canvas({ items, fullscreen, storeId, onRemove, onDuplica
         {items.map((item, index) => (
           <div
             key={item.instanceId}
+            id={`ci-${item.instanceId}`}
             className={`canvas-item${reorderOver === index ? ' canvas-item--drop-target' : ''}${reorderFrom === index ? ' canvas-item--dragging' : ''}`}
             draggable={!fullscreen}
             onDragStart={!fullscreen ? (e) => handleItemDragStart(e, index) : undefined}
