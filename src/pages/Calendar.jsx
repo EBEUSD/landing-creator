@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc,
+  collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc,
   query, orderBy, where, getDocs,
 } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -18,6 +18,11 @@ const PRESET_COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
   '#8b5cf6', '#ec4899', '#06b6d4', '#f97316',
 ]
+
+function generateProjectCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+}
 
 const EV_TOP = 34
 const EV_H   = 24
@@ -436,11 +441,31 @@ export default function Calendar() {
   const closeModal = ()               => setActiveModal(null)
 
   const handleSaveEvent = async (evData, notifyEmails = []) => {
+    let savedEventId = evData.id
+
     if (evData.id) {
       const { id, ...rest } = evData
       await updateDoc(doc(db, 'calEvents', id), rest)
     } else {
-      await addDoc(collection(db, 'calEvents'), { ...evData, createdAt: Date.now() })
+      const ref = await addDoc(collection(db, 'calEvents'), { ...evData, createdAt: Date.now() })
+      savedEventId = ref.id
+
+      const assignedStores = evData.storeIds || []
+      if (assignedStores.length > 0) {
+        await Promise.all(assignedStores.map(async storeId => {
+          const projectId = crypto.randomUUID()
+          await setDoc(doc(db, 'stores', storeId, 'projects', projectId), {
+            id: projectId,
+            name: evData.name,
+            savedAt: Date.now(),
+            canvas: [],
+            palette: null,
+            folderLink: '',
+            eventId: savedEventId,
+            projectCode: generateProjectCode(),
+          })
+        }))
+      }
     }
     closeModal()
 
