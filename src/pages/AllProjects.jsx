@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
+import { collection, query, orderBy, onSnapshot, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import { STORES, draftKey } from '../stores'
 
@@ -8,11 +8,25 @@ function formatDate(ts) {
   return new Date(ts).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+function formatEventDate(str) {
+  const [y, m, d] = str.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
 export default function AllProjects() {
   const navigate = useNavigate()
   const [projectsByStore, setProjectsByStore] = useState({})
+  const [eventsMap, setEventsMap] = useState({})
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
+
+  useEffect(() => {
+    getDocs(collection(db, 'calEvents')).then(snap => {
+      const map = {}
+      snap.docs.forEach(d => { map[d.id] = d.data() })
+      setEventsMap(map)
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     let loaded = 0
@@ -91,7 +105,7 @@ export default function AllProjects() {
                     <span className="ap-item__name">{p.name}</span>
                   </div>
                   <span className="ap-item__meta">
-                    {p.store.name} · {formatDate(p.savedAt)} · {p.canvas.length} componente{p.canvas.length !== 1 ? 's' : ''}
+                    {p.store.name} · {p.eventId && eventsMap[p.eventId]?.startDate ? formatEventDate(eventsMap[p.eventId].startDate) : formatDate(p.savedAt)} · {p.canvas.length} componente{p.canvas.length !== 1 ? 's' : ''}
                   </span>
                 </div>
                 <button className="btn-primary ap-item__open" onClick={() => handleOpen(p)}>
