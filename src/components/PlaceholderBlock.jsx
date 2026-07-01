@@ -253,6 +253,126 @@ export default function PlaceholderBlock({
     )
   }
 
+  if (layout === 'carrusel-cat') {
+    return (
+      <div className="ph-galeria ph-galeria--slim">
+        <div className="ph-galeria__grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+          {Array.from({ length: cols }, (_, i) => (
+            <div key={i} className="ph-galeria__card">
+              <div
+                className="ph-galeria__card-img"
+                style={{ aspectRatio: `${width} / ${height}`, backgroundColor: color }}
+              >
+                <DiagLines />
+              </div>
+              <div className="ph-galeria__card-body">
+                <span className="ph-galeria__card-name">Categoría</span>
+                <span className="ph-galeria__card-btn">Ver productos</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (layout === 'lista-contenido') {
+    return (
+      <div className="ph-lista">
+        <div className="ph-lista__grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+          {Array.from({ length: cols }, (_, i) => (
+            <div key={i} className="ph-lista__card">
+              <div
+                className="ph-lista__card-img"
+                style={{ aspectRatio: `${width} / ${height}`, backgroundColor: color }}
+              >
+                <DiagLines />
+              </div>
+              <div className="ph-lista__card-footer">
+                <span className="ph-lista__card-link">Descubrir</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (layout === 'galeria') {
+    return (
+      <div className="ph-galeria">
+        <div className="ph-galeria__header">
+          <span className="ph-galeria__header-text">Título de sección</span>
+        </div>
+        <div className="ph-galeria__grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+          {Array.from({ length: cols }, (_, i) => (
+            <div key={i} className="ph-galeria__card">
+              <div
+                className="ph-galeria__card-img"
+                style={{ aspectRatio: `${width} / ${height}`, backgroundColor: color }}
+              >
+                <DiagLines />
+              </div>
+              <div className="ph-galeria__card-body">
+                <span className="ph-galeria__card-name">Categoría</span>
+                <span className="ph-galeria__card-btn">Ver productos</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (layout === 'video') {
+    return (
+      <div className="ph-video" style={{ aspectRatio: `${width} / ${height}` }}>
+        <div className="ph-video__player" style={{ backgroundColor: color }}>
+          <DiagLines />
+          <div className="ph-video__play">
+            <div className="ph-video__play-triangle" />
+          </div>
+          <LabelArea
+            {...labelAreaProps}
+            dims={`${width}x${height}px`}
+          />
+        </div>
+        <div className="ph-video__sidebar">
+          <div className="ph-video__sidebar-title" />
+          <div className="ph-video__sidebar-lines">
+            <div className="ph-video__sidebar-line" />
+            <div className="ph-video__sidebar-line" />
+            <div className="ph-video__sidebar-line ph-video__sidebar-line--short" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (layout === 'etiqueta') {
+    return (
+      <div
+        className="ph-full ph-etiqueta"
+        style={{ aspectRatio: `${width} / ${height}`, backgroundColor: color }}
+      >
+        <DiagLines />
+        <LabelArea
+          {...labelAreaProps}
+          dims={`${width}x${height}${mbLabel}`}
+        />
+        <div className="ph-etiqueta__card">
+          <div className="ph-etiqueta__card-img" />
+          <div className="ph-etiqueta__card-body">
+            <span className="ph-etiqueta__card-title">Card de producto</span>
+            <span className="ph-etiqueta__card-price">$ —</span>
+          </div>
+        </div>
+        <div className="ph-etiqueta__pin ph-etiqueta__pin--2" />
+        <div className="ph-etiqueta__pin ph-etiqueta__pin--3" />
+      </div>
+    )
+  }
+
   return (
     <div
       className="ph-full"

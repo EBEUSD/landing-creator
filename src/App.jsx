@@ -209,20 +209,96 @@ const DEFAULT_PALETTE = [
   },
 ]
 
-function mergePaletteWithDefaults(loaded) {
-  return loaded.map(cat => {
-    const def = DEFAULT_PALETTE.find(d => d.id === cat.id)
-    if (!def) return cat
+const DEFAULT_PALETTE_ML = [
+  {
+    id: 'ml-banner-principal',
+    name: 'Banner Principal',
+    color: '#111827',
+    selectedVariantId: 'completo',
+    variants: [
+      { id: 'completo', name: 'Completo', layout: 'full', cols: 1, width: 1920, height: 480, widthMb: 600, heightMb: 450 },
+    ],
+  },
+  {
+    id: 'ml-banner-secundario',
+    name: 'Banner Secundario',
+    color: '#111827',
+    selectedVariantId: 'completo',
+    variants: [
+      { id: 'completo', name: 'Completo', layout: 'full', cols: 1, width: 1500, height: 250, widthMb: 600, heightMb: 200 },
+    ],
+  },
+  {
+    id: 'ml-etiqueta-producto',
+    name: 'Etiqueta de Producto',
+    color: '#111827',
+    selectedVariantId: 'completo',
+    variants: [
+      { id: 'completo', name: 'Completo', layout: 'etiqueta', cols: 1, width: 1200, height: 800 },
+    ],
+  },
+  {
+    id: 'ml-galeria-categoria',
+    name: 'Galería de Categoría',
+    color: '#111827',
+    selectedVariantId: '2-cat',
+    variants: [
+      { id: '2-cat', name: '2 categorías', layout: 'galeria', cols: 2, width: 574, height: 323, widthMb: 328, heightMb: 184 },
+      { id: '3-cat', name: '3 categorías', layout: 'galeria', cols: 3, width: 327, height: 209, widthMb: 328, heightMb: 184 },
+      { id: '4-cat', name: '4 categorías', layout: 'galeria', cols: 4, width: 271, height: 153, widthMb: 156, heightMb: 156 },
+    ],
+  },
+  {
+    id: 'ml-carrusel-producto',
+    name: 'Carrusel de Producto',
+    color: '#111827',
+    selectedVariantId: '2-col',
+    variants: [
+      { id: '2-col', name: '2 columnas', layout: 'carrusel-cat', cols: 2, width: 574, height: 323 },
+      { id: '3-col', name: '3 columnas', layout: 'carrusel-cat', cols: 3, width: 372, height: 209 },
+      { id: '4-col', name: '4 columnas', layout: 'carrusel-cat', cols: 4, width: 271, height: 153 },
+    ],
+  },
+  {
+    id: 'ml-lista-contenido',
+    name: 'Lista de Contenido',
+    color: '#111827',
+    selectedVariantId: '2-col',
+    variants: [
+      { id: '2-col', name: '2 columnas', layout: 'lista-contenido', cols: 2, width: 574, height: 765, widthMb: 350, heightMb: 466 },
+      { id: '3-col', name: '3 columnas', layout: 'lista-contenido', cols: 3, width: 574, height: 765, widthMb: 350, heightMb: 466 },
+      { id: '4-col', name: '4 columnas', layout: 'lista-contenido', cols: 4, width: 574, height: 765, widthMb: 350, heightMb: 466 },
+    ],
+  },
+  {
+    id: 'ml-video-portada',
+    name: 'Video',
+    color: '#0a0a0a',
+    selectedVariantId: 'derecha',
+    variants: [
+      { id: 'derecha', name: 'Derecha', layout: 'video', cols: 1, width: 1280, height: 720 },
+      { id: 'encima',  name: 'Encima',  layout: 'video', cols: 1, width: 1180, height: 468 },
+      { id: 'arriba',  name: 'Arriba',  layout: 'video', cols: 1, width: 1180, height: 360 },
+    ],
+  },
+]
+
+function getDefaultPalette(storeId) {
+  if (storeId === 'mercadolibre') return DEFAULT_PALETTE_ML
+  return DEFAULT_PALETTE
+}
+
+function mergePaletteWithDefaults(loaded, defaultPalette) {
+  return defaultPalette.map(def => {
+    const cat = loaded.find(c => c.id === def.id)
+    if (!cat) return def
     return {
+      ...def,
       ...cat,
-      variants: cat.variants.map(v => {
-        const defV = def.variants.find(dv => dv.id === v.id)
-        if (!defV) return v
-        const merged = { ...v }
-        for (const key of Object.keys(defV)) {
-          if (!(key in merged)) merged[key] = defV[key]
-        }
-        return merged
+      variants: def.variants.map(defV => {
+        const v = cat.variants?.find(cv => cv.id === defV.id)
+        if (!v) return defV
+        return { ...defV, ...v }
       }),
     }
   })
@@ -250,9 +326,10 @@ export default function App() {
   const store = STORES.find(s => s.id === storeId)
 
   const draft = urlProjectId ? null : loadDraft(storeId)
+  const defaultPalette = getDefaultPalette(storeId)
 
   const [palette, setPalette] = useState(() =>
-    draft?.palette ? mergePaletteWithDefaults(draft.palette) : DEFAULT_PALETTE
+    draft?.palette ? mergePaletteWithDefaults(draft.palette, defaultPalette) : defaultPalette
   )
   const [canvas, setCanvas] = useState(() => draft?.canvas ?? [])
   const [fullscreen, setFullscreen] = useState(false)
@@ -279,7 +356,7 @@ export default function App() {
         if (snap.exists()) {
           const p = snap.data()
           setCanvas(p.canvas || [])
-          setPalette(mergePaletteWithDefaults(p.palette || DEFAULT_PALETTE))
+          setPalette(mergePaletteWithDefaults(p.palette || defaultPalette, defaultPalette))
           setProjectName(p.name || '')
           setCurrentProjectId(urlProjectId)
           currentProjectIdRef.current = urlProjectId
@@ -304,6 +381,32 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, palette, projectName, currentProjectId, folderLink, eventId, projectCode }))
   }, [canvas, palette, projectName, currentProjectId, folderLink, eventId, projectCode, storeId])
+
+  // Auto-save a Firestore cuando el proyecto ya tiene ID y el usuario edita
+  const autoSaveTimer = useRef(null)
+  useEffect(() => {
+    if (!currentProjectId || loadingProject) return
+    clearTimeout(autoSaveTimer.current)
+    autoSaveTimer.current = setTimeout(async () => {
+      const id = currentProjectIdRef.current
+      if (!id) return
+      try {
+        await setDoc(doc(db, 'stores', storeId, 'projects', id), {
+          id,
+          name: projectName.trim() || 'Sin título',
+          savedAt: Date.now(),
+          canvas,
+          palette,
+          folderLink,
+          eventId: eventId ?? null,
+          projectCode: projectCode ?? null,
+        })
+        setSavedFlash(true)
+        setTimeout(() => setSavedFlash(false), 2000)
+      } catch (_) {}
+    }, 2500)
+    return () => clearTimeout(autoSaveTimer.current)
+  }, [canvas, palette, projectName, folderLink, eventId, currentProjectId, loadingProject])
 
   // ── Palette handlers ──────────────────────────────
   const selectVariant = (categoryId, variantId) =>
@@ -431,7 +534,7 @@ export default function App() {
     currentProjectIdRef.current = null
     loadedProjectIdRef.current = null
     setCanvas([])
-    setPalette(DEFAULT_PALETTE)
+    setPalette(defaultPalette)
     setCurrentProjectId(null)
     setProjectName('')
     setFolderLink('')
