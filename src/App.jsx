@@ -110,7 +110,7 @@ const DEFAULT_PALETTE = [
     selectedVariantId: 'completo',
     variants: [
       { id: 'completo', name: 'Completo', layout: 'full', cols: 1, width: 1920, height: 640, widthMb: 750, heightMb: 1000 },
-      { id: 'cards',    name: 'Cards',    layout: 'grid', cols: 5, width: 700,  height: 945 },
+      { id: 'cards',    name: 'Cards',    layout: 'grid', cols: 5, width: 1458, height: 1250 },
     ],
   },
   {
