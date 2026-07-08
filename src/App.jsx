@@ -667,7 +667,7 @@ export default function App() {
             )}
             {canvas.some(i => i.referenceImg) && (
               <button className="btn-ghost" onClick={() => setPreviewAll(true)}>
-                ⊞ Preview refs
+                ⊞ Preview refs.
               </button>
             )}
             <button className="btn-ghost" onClick={() => setFullscreen(f => !f)}>
