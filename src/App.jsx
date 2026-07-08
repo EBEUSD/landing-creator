@@ -331,6 +331,7 @@ export default function App() {
   )
   const [canvas, setCanvas] = useState(() => draft?.canvas ?? [])
   const [fullscreen, setFullscreen] = useState(false)
+  const [previewAll, setPreviewAll] = useState(false)
 
   const [currentProjectId, setCurrentProjectId] = useState(() => urlProjectId ?? draft?.currentProjectId ?? null)
   const currentProjectIdRef = useRef(urlProjectId ?? draft?.currentProjectId ?? null)
@@ -664,6 +665,11 @@ export default function App() {
                 )}
               </div>
             )}
+            {canvas.some(i => i.referenceImg) && (
+              <button className="btn-ghost" onClick={() => setPreviewAll(true)}>
+                ⊞ Preview refs
+              </button>
+            )}
             <button className="btn-ghost" onClick={() => setFullscreen(f => !f)}>
               {fullscreen ? '✕ Cerrar' : '⛶ Pantalla completa'}
             </button>
@@ -686,6 +692,33 @@ export default function App() {
       </div>
 
       {!fullscreen && <CanvasQuickNav canvas={canvas} />}
+
+      {previewAll && (
+        <div className="preview-all-overlay" onMouseDown={e => e.target === e.currentTarget && setPreviewAll(false)}>
+          <div className="preview-all-panel">
+            <div className="preview-all__head">
+              <span className="preview-all__title">Preview de referencias</span>
+              <span className="preview-all__sub">{canvas.filter(i => i.referenceImg).length} de {canvas.length} con imagen</span>
+              <button className="preview-all__close" onClick={() => setPreviewAll(false)}>✕</button>
+            </div>
+            <div className="preview-all__list">
+              {canvas.map((item, idx) => (
+                <div key={item.instanceId} className="preview-all__item">
+                  <div className="preview-all__item-label">
+                    <span className="preview-all__item-num">{idx + 1}</span>
+                    <span className="preview-all__item-name">{item.label || item.name}</span>
+                    {!item.referenceImg && <span className="preview-all__item-empty">sin imagen</span>}
+                  </div>
+                  {item.referenceImg
+                    ? <img className="preview-all__img" src={item.referenceImg} alt={item.label || item.name} />
+                    : <div className="preview-all__placeholder" />
+                  }
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showNotifyModal && (
         <NotifyModal
