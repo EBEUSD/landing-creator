@@ -119,8 +119,8 @@ const DEFAULT_PALETTE = [
     color: '#111111',
     selectedVariantId: 'cards-der',
     variants: [
-      { id: 'cards-der', name: 'Cards Der.', layout: 'carousel', cols: 2, width: 980, height: 764, cardWidth: 380, cardHeight: 500, bannerSide: 'left' },
-      { id: 'cards-izq', name: 'Cards Izq.', layout: 'carousel', cols: 2, width: 980, height: 764, cardWidth: 380, cardHeight: 500, bannerSide: 'right' },
+      { id: 'cards-der', name: 'Cards Der.', layout: 'carousel', cols: 2, width: 1500, height: 1050, cardWidth: 380, cardHeight: 500, bannerSide: 'left' },
+      { id: 'cards-izq', name: 'Cards Izq.', layout: 'carousel', cols: 2, width: 1500, height: 1050, cardWidth: 380, cardHeight: 500, bannerSide: 'right' },
     ],
   },
   {
@@ -158,7 +158,7 @@ const DEFAULT_PALETTE = [
     selectedVariantId: '4-col',
     variants: [
       { id: '2-col',    name: '2 col',    layout: 'grid', cols: 2, width: 600, height: 800, widthMb: null, heightMb: null },
-      { id: '3-col',    name: '3 col',    layout: 'grid', cols: 3, width: 600, height: 800, widthMb: null, heightMb: null },
+      { id: '3-col',    name: '3 col',    layout: 'grid', cols: 3, width: 800, height: 400, widthMb: 600, heightMb: 900 },
       { id: '4-col',    name: '4 col',    layout: 'grid', cols: 4, width: 600, height: 800, widthMb: null, heightMb: null },
       { id: '5-slider', name: '5 Slider', layout: 'grid', cols: 5, width: 600, height: 800, widthMb: null, heightMb: null },
     ],
@@ -288,18 +288,16 @@ function getDefaultPalette(storeId) {
   return DEFAULT_PALETTE
 }
 
+const PALETTE_DIM_KEYS = ['width', 'height', 'cardWidth', 'cardHeight', 'widthMb', 'heightMb', 'cols', 'layout', 'bannerSide', 'textVariant']
+
 function mergePaletteWithDefaults(loaded, defaultPalette) {
   return defaultPalette.map(def => {
     const cat = loaded.find(c => c.id === def.id)
     if (!cat) return def
     return {
       ...def,
-      ...cat,
-      variants: def.variants.map(defV => {
-        const v = cat.variants?.find(cv => cv.id === defV.id)
-        if (!v) return defV
-        return { ...defV, ...v }
-      }),
+      color: cat.color ?? def.color,
+      selectedVariantId: cat.selectedVariantId ?? def.selectedVariantId,
     }
   })
 }
