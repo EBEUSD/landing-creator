@@ -26,6 +26,8 @@ function NotifyModal({ projectName, projectCode, projectId, storeName, storeId, 
         ? `[${projectCode}] Actualización: ${projectName}`
         : `Actualización: ${projectName}`
       const body = [
+        `▸ Ver proyecto: ${projectUrl}`,
+        ``,
         `Hola,`,
         ``,
         `Se actualizó el proyecto "${projectName}" en Landing Creator.`,
@@ -35,7 +37,6 @@ function NotifyModal({ projectName, projectCode, projectId, storeName, storeId, 
         projectId   ? `▸ ID: ${projectId}` : '',
         projectCode ? `▸ Código: ${projectCode}` : '',
         folderLink  ? `▸ Carpeta: ${folderLink}` : '',
-        `▸ Ver proyecto: ${projectUrl}`,
         ``,
         `— Landing Creator`,
       ].filter(Boolean).join('\n')
@@ -331,6 +332,7 @@ export default function App() {
   )
   const [canvas, setCanvas] = useState(() => draft?.canvas ?? [])
   const [fullscreen, setFullscreen] = useState(false)
+  const [compact, setCompact] = useState(false)
   const [previewAll, setPreviewAll] = useState(false)
 
   const [currentProjectId, setCurrentProjectId] = useState(() => urlProjectId ?? draft?.currentProjectId ?? null)
@@ -667,7 +669,12 @@ export default function App() {
             )}
             {canvas.some(i => i.referenceImg) && (
               <button className="btn-ghost" onClick={() => setPreviewAll(true)}>
-                ⊞ Preview refs.
+                ⊞ Preview refs
+              </button>
+            )}
+            {!fullscreen && canvas.length > 0 && (
+              <button className={`btn-ghost${compact ? ' btn-ghost--active' : ''}`} onClick={() => setCompact(c => !c)}>
+                ☰ Lista
               </button>
             )}
             <button className="btn-ghost" onClick={() => setFullscreen(f => !f)}>
@@ -677,6 +684,7 @@ export default function App() {
           <Canvas
             items={canvas}
             fullscreen={fullscreen}
+            compact={compact}
             storeId={storeId}
             onRemove={removeFromCanvas}
             onDuplicate={duplicateCanvasItem}

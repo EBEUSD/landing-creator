@@ -50,7 +50,7 @@ function LabelArea({
         onClick={onEdit}
         style={onEdit ? { pointerEvents: 'auto', cursor: 'text' } : undefined}
       >
-        {displayLabel}///
+        {displayLabel}
       </span>
       {dims && (dimsEditing ? (
         <input

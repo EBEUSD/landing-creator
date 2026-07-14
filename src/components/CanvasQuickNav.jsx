@@ -20,7 +20,7 @@ function scrollToItem(instanceId) {
 }
 
 export default function CanvasQuickNav({ canvas }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
 
   const pending = canvas
     .map((item, idx) => {

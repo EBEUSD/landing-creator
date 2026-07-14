@@ -864,6 +864,64 @@
 /* ── Canvas item ─────────────────────────────────── */
 .canvas-item {
   position: relative;
+  border: 2px solid var(--item-color, transparent);
+  border-radius: 4px;
+  margin-bottom: 2px;
+  overflow: hidden;
+}
+
+.canvas-item--collapsed {
+  border-bottom: 1px solid var(--border-1);
+}
+
+/* Compact mode */
+.canvas-page--compact .canvas-item {
+  border-bottom: 1px solid var(--border-1);
+}
+
+.canvas-item__collapse-btn {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 8px;
+  line-height: 1.6;
+  flex-shrink: 0;
+  white-space: nowrap;
+
+  &:hover { background: rgba(255,255,255,0.13); color: #fff; }
+}
+
+.canvas-item__status-chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+.canvas-item__comment-add {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 10px;
+  text-align: left;
+  width: 100%;
+  opacity: 0.5;
+
+  &:hover { opacity: 1; color: var(--text-2); }
+}
+
+.btn-ghost--active {
+  background: var(--surface-2);
+  color: var(--text-1);
 }
 
 .canvas-item__comment {
