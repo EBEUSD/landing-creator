@@ -26,7 +26,7 @@ const SORTS = [
   { id: 'OrderByBestDiscountDESC', label: 'Mayor descuento' },
 ]
 
-function buildSearchUrl(brandId, catId, sort, to = 4) {
+function buildSearchUrl(brandId, catId, sort, to = 14) {
   return `${VTEX_SEARCH}?fq=B:${brandId}&fq=C:${catId}&O=${sort}&_from=0&_to=${to}`
 }
 
@@ -61,14 +61,14 @@ export default function SKUSearchModal({ onClose, onAdd }) {
     setSelected(new Set())
 
     const H = { headers: { Accept: 'application/json' } }
-    const slugUrl = `${VTEX_SEARCH}/${cat.slug}/${toSlug(q)}?map=c,b&O=${sort}&_from=0&_to=4`
-    const ftUrl   = `${VTEX_SEARCH}?ft=${encodeURIComponent(q)}&fq=C:${cat.catId}&O=${sort}&_from=0&_to=4`
+    const slugUrl = `${VTEX_SEARCH}/${cat.slug}/${toSlug(q)}?map=c,b&O=${sort}&_from=0&_to=14`
+    const ftUrl   = `${VTEX_SEARCH}?ft=${encodeURIComponent(q)}&fq=C:${cat.catId}&O=${sort}&_from=0&_to=14`
 
     try {
       let products = null
 
       if (match) {
-        const r = await proxiedFetch(buildSearchUrl(match.id, cat.catId, sort, 4), H)
+        const r = await proxiedFetch(buildSearchUrl(match.id, cat.catId, sort, 14), H)
         if (r.ok && r.status !== 413) products = await r.json()
       }
 

@@ -959,10 +959,10 @@
 }
 
 .canvas-item__name {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   font-family: var(--mono);
   white-space: nowrap;
   overflow: hidden;
@@ -978,22 +978,50 @@
   }
 }
 
-.canvas-item__label-input {
+.canvas-item__name-wrap {
+  position: relative;
   flex: 1;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 3px;
-  color: rgba(255, 255, 255, 0.95);
-  font-size: 10px;
-  font-family: var(--mono);
-  padding: 1px 6px;
-  outline: none;
   min-width: 0;
-  margin-right: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.canvas-item--editing {
+  overflow: visible;
+  z-index: 10;
+}
+
+.canvas-item__label-input {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #111;
+  font-size: 13px;
+  font-family: var(--mono);
+  text-align: center;
+  padding: 8px 14px;
+  outline: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.22);
+  white-space: nowrap;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-bottom-color: #fff;
+  }
 
   &:focus {
-    border-color: rgba(255, 255, 255, 0.5);
-    background: rgba(255, 255, 255, 0.12);
+    border-color: #6366f1;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.22), 0 0 0 3px rgba(99, 102, 241, 0.15);
   }
 }
 
@@ -1256,6 +1284,18 @@
 
 .preview-all__item {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: grab;
+  transition: opacity 0.15s;
+
+  &:active { cursor: grabbing; }
+}
+
+.preview-all__item--dragging {
+  opacity: 0.35;
+}
+
+.preview-all__item--drop {
+  box-shadow: inset 0 3px 0 0 #6366f1;
 }
 
 .preview-all__item-label {
@@ -1264,6 +1304,14 @@
   gap: 8px;
   padding: 8px 16px;
   background: #1a1a1a;
+}
+
+.preview-all__item-drag {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.2);
+  cursor: grab;
+  user-select: none;
+  &:active { cursor: grabbing; }
 }
 
 .preview-all__item-num {

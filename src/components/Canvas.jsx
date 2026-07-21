@@ -238,15 +238,15 @@ export default function Canvas({ items, fullscreen, compact, storeId, onRemove, 
         <div className={`canvas-page${fullscreen ? ' canvas-page--fullscreen' : ''}${compact ? ' canvas-page--compact' : ''}`}>
           {items.map((item, index) => {
             const isCollapsed = collapsedIds.has(item.instanceId)
-            const collapsed = isCollapsed || compact
+            const collapsed = isCollapsed
             const status = getDominantStatus(item.notes)
-            const showComment = !compact && (!!item.comment || commentOpenIds.has(item.instanceId))
+            const showComment = !!item.comment || commentOpenIds.has(item.instanceId)
 
             return (
               <div
                 key={item.instanceId}
                 id={`ci-${item.instanceId}`}
-                className={`canvas-item${reorderOver === index ? ' canvas-item--drop-target' : ''}${reorderFrom === index ? ' canvas-item--dragging' : ''}${collapsed ? ' canvas-item--collapsed' : ''}`}
+                className={`canvas-item${reorderOver === index ? ' canvas-item--drop-target' : ''}${reorderFrom === index ? ' canvas-item--dragging' : ''}${collapsed ? ' canvas-item--collapsed' : ''}${barEditingId === item.instanceId ? ' canvas-item--editing' : ''}`}
                 style={{ '--item-color': BORDER_COLORS[index % BORDER_COLORS.length] }}
                 draggable={!fullscreen}
                 onDragStart={!fullscreen ? (e) => handleItemDragStart(e, index) : undefined}
@@ -265,21 +265,27 @@ export default function Canvas({ items, fullscreen, compact, storeId, onRemove, 
                     </button>
                     <span className="canvas-item__drag-handle" title="Arrastrar para reordenar">⠿</span>
 
-                    {barEditingId === item.instanceId ? (
-                      <input className="canvas-item__label-input" value={barEditValue}
-                        onChange={e => setBarEditValue(e.target.value)}
-                        onBlur={() => commitBarEdit(item.instanceId)}
-                        onKeyDown={e => handleBarKeyDown(e, item.instanceId)} autoFocus />
-                    ) : (
+                    <div className="canvas-item__name-wrap">
                       <span className="canvas-item__name" onClick={() => startBarEdit(item)}>
                         {item.customBarText ?? autoBarText(item)}
                       </span>
-                    )}
+                      {barEditingId === item.instanceId && (
+                        <input
+                          className="canvas-item__label-input"
+                          value={barEditValue}
+                          onChange={e => setBarEditValue(e.target.value)}
+                          onBlur={() => commitBarEdit(item.instanceId)}
+                          onKeyDown={e => handleBarKeyDown(e, item.instanceId)}
+                          size={Math.max(24, (barEditValue?.length || 0) + 2)}
+                          autoFocus
+                        />
+                      )}
+                    </div>
 
                     {status && (
                       <span className="canvas-item__status-chip"
                         style={{ background: status.bg, color: status.text }}>
-                        {status.label} {status.count > 1 ? `·${status.count}` : ''}
+                        {status.label}: {status.count}
                       </span>
                     )}
 
@@ -310,7 +316,7 @@ export default function Canvas({ items, fullscreen, compact, storeId, onRemove, 
                   </div>
                 )}
 
-                {!fullscreen && !compact && (
+                {!fullscreen && (
                   showComment ? (
                     <textarea
                       className={`canvas-item__comment${item.comment ? ' canvas-item__comment--filled' : ''}`}
@@ -328,12 +334,12 @@ export default function Canvas({ items, fullscreen, compact, storeId, onRemove, 
                   )
                 )}
 
-                {!fullscreen && !compact && (
+                {!fullscreen && !isCollapsed && (
                   <CanvasItemNotes instanceId={item.instanceId} notes={item.notes} storeId={storeId}
                     onUpdate={notes => onUpdateNotes(item.instanceId, notes)} />
                 )}
 
-                {!collapsed && (
+                {!collapsed && !compact && (
                   <PlaceholderBlock
                     name={item.name} label={item.label} layout={item.layout} cols={item.cols}
                     width={item.width} height={item.height} widthMb={item.widthMb} heightMb={item.heightMb}

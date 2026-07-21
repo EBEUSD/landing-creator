@@ -334,6 +334,8 @@ export default function App() {
   const [fullscreen, setFullscreen] = useState(false)
   const [compact, setCompact] = useState(false)
   const [previewAll, setPreviewAll] = useState(false)
+  const [previewDragFrom, setPreviewDragFrom] = useState(null)
+  const [previewDragOver, setPreviewDragOver] = useState(null)
 
   const [currentProjectId, setCurrentProjectId] = useState(() => urlProjectId ?? draft?.currentProjectId ?? null)
   const currentProjectIdRef = useRef(urlProjectId ?? draft?.currentProjectId ?? null)
@@ -674,7 +676,7 @@ export default function App() {
             )}
             {!fullscreen && canvas.length > 0 && (
               <button className={`btn-ghost${compact ? ' btn-ghost--active' : ''}`} onClick={() => setCompact(c => !c)}>
-                ☰ Lista
+                {compact ? 'Mostrar componentes' : 'Ocultar componentes'}
               </button>
             )}
             <button className="btn-ghost" onClick={() => setFullscreen(f => !f)}>
@@ -711,8 +713,31 @@ export default function App() {
             </div>
             <div className="preview-all__list">
               {canvas.map((item, idx) => (
-                <div key={item.instanceId} className="preview-all__item">
+                <div
+                  key={item.instanceId}
+                  className={`preview-all__item${previewDragOver === idx ? ' preview-all__item--drop' : ''}${previewDragFrom === idx ? ' preview-all__item--dragging' : ''}`}
+                  draggable
+                  onDragStart={e => {
+                    e.dataTransfer.effectAllowed = 'move'
+                    e.dataTransfer.setData('text/plain', String(idx))
+                    setPreviewDragFrom(idx)
+                  }}
+                  onDragOver={e => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                    setPreviewDragOver(idx)
+                  }}
+                  onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setPreviewDragOver(null) }}
+                  onDrop={e => {
+                    e.preventDefault()
+                    const from = Number(e.dataTransfer.getData('text/plain'))
+                    if (!isNaN(from) && from !== idx) reorderCanvas(from, idx)
+                    setPreviewDragFrom(null); setPreviewDragOver(null)
+                  }}
+                  onDragEnd={() => { setPreviewDragFrom(null); setPreviewDragOver(null) }}
+                >
                   <div className="preview-all__item-label">
+                    <span className="preview-all__item-drag">⠿</span>
                     <span className="preview-all__item-num">{idx + 1}</span>
                     <span className="preview-all__item-name">{item.label || item.name}</span>
                     {!item.referenceImg && <span className="preview-all__item-empty">sin imagen</span>}
