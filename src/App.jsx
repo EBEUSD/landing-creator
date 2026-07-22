@@ -687,6 +687,7 @@ export default function App() {
             items={canvas}
             fullscreen={fullscreen}
             compact={compact}
+            onSetCompact={setCompact}
             storeId={storeId}
             onRemove={removeFromCanvas}
             onDuplicate={duplicateCanvasItem}

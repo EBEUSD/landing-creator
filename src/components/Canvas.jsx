@@ -133,7 +133,7 @@ function RefImgModal({ item, storeId, onClose, onSave, onRemove }) {
   )
 }
 
-export default function Canvas({ items, fullscreen, compact, storeId, onRemove, onDuplicate, onMove, onReorder, onUpdateLabel, onUpdateBarText, onUpdateDims, onUpdateNotes, onDropAdd }) {
+export default function Canvas({ items, fullscreen, compact, onSetCompact, storeId, onRemove, onDuplicate, onMove, onReorder, onUpdateLabel, onUpdateBarText, onUpdateDims, onUpdateNotes, onDropAdd }) {
   const [editingId, setEditingId]         = useState(null)
   const [editValue, setEditValue]         = useState('')
   const [barEditingId, setBarEditingId]   = useState(null)
@@ -259,9 +259,12 @@ export default function Canvas({ items, fullscreen, compact, storeId, onRemove, 
                   <div className="canvas-item__bar">
                     <button
                       className="canvas-item__collapse-btn"
-                      onClick={() => toggleCollapse(item.instanceId)}
+                      onClick={() => {
+                        if (compact) onSetCompact(false)
+                        if (!compact || isCollapsed) toggleCollapse(item.instanceId)
+                      }}
                     >
-                      {isCollapsed ? 'Mostrar componente' : 'Ocultar componente'}
+                      {isCollapsed || compact ? 'Mostrar componente' : 'Ocultar componente'}
                     </button>
                     <span className="canvas-item__drag-handle" title="Arrastrar para reordenar">⠿</span>
 
@@ -334,7 +337,7 @@ export default function Canvas({ items, fullscreen, compact, storeId, onRemove, 
                   )
                 )}
 
-                {!fullscreen && !isCollapsed && (
+                {!fullscreen && (
                   <CanvasItemNotes instanceId={item.instanceId} notes={item.notes} storeId={storeId}
                     onUpdate={notes => onUpdateNotes(item.instanceId, notes)} />
                 )}
