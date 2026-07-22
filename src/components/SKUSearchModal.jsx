@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react'
-import { FiSearch } from 'react-icons/fi'
 
 const PROXY = import.meta.env.DEV
   ? (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
   : (url) => `/api/vtex?url=${encodeURIComponent(url)}`
 const VTEX_SEARCH = 'https://www.perfumeriasrouge.com/api/catalog_system/pub/products/search'
+const VTEX_FACETS = 'https://www.perfumeriasrouge.com/api/catalog_system/pub/facets/search'
 const VTEX_BRANDS = 'https://www.perfumeriasrouge.com/api/catalog_system/pub/brand/list'
 
 const proxiedFetch = (url, opts) => fetch(PROXY(url), opts)
 
+const PAGE_SIZE = 15
+
 const CATEGORY_KEYS = [
-  { key: 'perfumes',   label: 'Perfumes',   catId: 100, slug: 'perfumes-y-fragancias' },
+  { key: 'perfumes',   label: 'Perfumes',   catId: 100, slug: 'perfumes-y-fragancias', hasGender: true },
   { key: 'maquillaje', label: 'Maquillaje', catId: 105, slug: 'maquillaje' },
 ]
 
@@ -26,26 +28,80 @@ const SORTS = [
   { id: 'OrderByBestDiscountDESC', label: 'Mayor descuento' },
 ]
 
-function buildSearchUrl(brandId, catId, sort, to = 14) {
-  return `${VTEX_SEARCH}?fq=B:${brandId}&fq=C:${catId}&O=${sort}&_from=0&_to=${to}`
+function flattenProducts(raw) {
+  const list = Array.isArray(raw) ? raw : (raw?.products ?? [])
+  return list.flatMap(p =>
+    (p.items || []).map(item => ({
+      itemId:   item.itemId,
+      refId:    item.referenceId?.[0]?.Value ?? item.itemId,
+      name:     item.nameComplete || item.name || p.productName,
+      imageUrl: item.images?.[0]?.imageUrl ?? null,
+    }))
+  )
+}
+
+// Descubrimos el specificationFilter ID de "Género" desde la API de facetas.
+// generoSpec = { id: "194", hombre: "Hombre", mujer: "Mujer" } (o null si no carga)
+async function fetchGeneroSpec() {
+  try {
+    const url = `${VTEX_FACETS}/perfumes-y-fragancias?map=c`
+    const r   = await proxiedFetch(url, { headers: { Accept: 'application/json' } })
+    if (!r.ok) return null
+    const data = await r.json()
+
+    const specFilters = data?.SpecificationFilters ?? {}
+    const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    const key  = Object.keys(specFilters).find(k => norm(k) === 'genero')
+    if (!key) return null
+
+    const facets = specFilters[key]
+    const list   = Array.isArray(facets) ? facets : Object.values(facets || {}).flat()
+    if (!list.length) return null
+
+    // Todos los facets del mismo spec comparten el mismo Map (ej. "specificationFilter_194")
+    const m = (list[0]?.Map ?? '').match(/specificationFilter_(\d+)/)
+    if (!m) return null
+
+    const spec = { id: m[1] }
+    for (const facet of list) {
+      const n = norm(facet.Name ?? facet.Value ?? '')
+      if (n === 'hombre') spec.hombre = facet.Value ?? facet.Name
+      if (n === 'mujer')  spec.mujer  = facet.Value ?? facet.Name
+    }
+    return (spec.hombre || spec.mujer) ? spec : null
+  } catch { return null }
 }
 
 export default function SKUSearchModal({ onClose, onAdd }) {
   const [query, setQuery]             = useState('')
   const [categoryKey, setCategoryKey] = useState('perfumes')
+  const [gender, setGender]           = useState(null) // null | 'hombre' | 'mujer'
   const [sort, setSort]               = useState('OrderByTopSaleDESC')
   const [brands, setBrands]           = useState([])
+  const [generoSpec, setGeneroSpec]   = useState(null)
   const [skus, setSkus]               = useState(null)
   const [loading, setLoading]         = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError]             = useState(null)
   const [selected, setSelected]       = useState(new Set())
+  const [urlBuilder, setUrlBuilder]   = useState(null)
+  const [hasMore, setHasMore]         = useState(false)
+  const [offset, setOffset]           = useState(0)
 
   useEffect(() => {
     proxiedFetch(VTEX_BRANDS, { headers: { Accept: 'application/json' } })
       .then(r => r.json())
       .then(data => setBrands(data.filter(b => b.isActive)))
       .catch(() => {})
+
+    // Descubrir spec ID de Género al montar el componente
+    fetchGeneroSpec().then(spec => { if (spec) setGeneroSpec(spec) })
   }, [])
+
+  useEffect(() => {
+    const cat = CATEGORY_KEYS.find(c => c.key === categoryKey)
+    if (!cat?.hasGender) setGender(null)
+  }, [categoryKey])
 
   const handleSearch = async (e) => {
     e.preventDefault()
@@ -59,39 +115,64 @@ export default function SKUSearchModal({ onClose, onAdd }) {
     setError(null)
     setSkus(null)
     setSelected(new Set())
+    setHasMore(false)
+    setOffset(0)
 
     const H = { headers: { Accept: 'application/json' } }
-    const slugUrl = `${VTEX_SEARCH}/${cat.slug}/${toSlug(q)}?map=c,b&O=${sort}&_from=0&_to=14`
-    const ftUrl   = `${VTEX_SEARCH}?ft=${encodeURIComponent(q)}&fq=C:${cat.catId}&O=${sort}&_from=0&_to=14`
+
+    const tryFetch = async (url) => {
+      try {
+        const r = await proxiedFetch(url, H)
+        if (!r.ok) return null
+        const data = await r.json()
+        if (Array.isArray(data) && data.length > 0) return data
+        if (data?.products?.length > 0) return data.products
+        return null
+      } catch { return null }
+    }
 
     try {
-      let products = null
+      let rawProducts = null
+      let builder     = null
 
-      if (match) {
-        const r = await proxiedFetch(buildSearchUrl(match.id, cat.catId, sort, 14), H)
-        if (r.ok && r.status !== 413) products = await r.json()
+      // 1. Marca reconocida + género + spec ID descubierto
+      //    → catalog search con fq=specificationFilter_ID:Valor
+      if (match && gender && generoSpec?.id && generoSpec[gender]) {
+        const genderValue = generoSpec[gender]
+        const specBuilder = (from, to) =>
+          `${VTEX_SEARCH}?fq=B:${match.id}&fq=C:${cat.catId}&fq=specificationFilter_${generoSpec.id}:${genderValue}&O=${sort}&_from=${from}&_to=${to}`
+        rawProducts = await tryFetch(specBuilder(0, PAGE_SIZE - 1))
+        if (rawProducts) builder = specBuilder
       }
 
-      if (!products) {
-        const r = await proxiedFetch(slugUrl, H)
-        if (r.ok) { products = await r.json() }
+      // 2. Marca reconocida sin género (o spec falló) → brand-ID catalog search
+      if (!rawProducts && match) {
+        const brandBuilder = (from, to) =>
+          `${VTEX_SEARCH}?fq=B:${match.id}&fq=C:${cat.catId}&O=${sort}&_from=${from}&_to=${to}`
+        rawProducts = await tryFetch(brandBuilder(0, PAGE_SIZE - 1))
+        if (rawProducts) builder = brandBuilder
       }
 
-      if (!products || products.length === 0) {
-        const r = await proxiedFetch(ftUrl, H)
-        if (r.ok) products = await r.json()
-        else throw new Error(`HTTP ${r.status}`)
+      // 3. Sin marca reconocida → full-text (nombres de producto, marcas no listadas)
+      //    Con género activo agrega keyword para acotar ("sauvage mujer")
+      if (!rawProducts) {
+        const ftQ = gender ? `${q} ${gender}` : q
+        const ftBuilder = (from, to) =>
+          `${VTEX_SEARCH}?ft=${encodeURIComponent(ftQ)}&fq=C:${cat.catId}&O=${sort}&_from=${from}&_to=${to}`
+        const r = await proxiedFetch(ftBuilder(0, PAGE_SIZE - 1), H)
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        rawProducts = await r.json()
+        builder     = ftBuilder
       }
-      const flat = (products ?? []).flatMap(p =>
-        p.items.map(item => ({
-          itemId:   item.itemId,
-          refId:    item.referenceId?.[0]?.Value ?? item.itemId,
-          name:     item.nameComplete || p.productName,
-          imageUrl: item.images?.[0]?.imageUrl ?? null,
-        }))
-      )
+
+      const flat = flattenProducts(rawProducts)
       setSkus(flat)
-      if (flat.length === 0) setError(`Sin resultados para "${q}" en ${cat.label}.`)
+      setOffset(PAGE_SIZE)
+      setHasMore(flat.length === PAGE_SIZE)
+      setUrlBuilder(() => builder)
+      if (flat.length === 0) {
+        setError(`Sin resultados para "${q}" en ${cat.label}${gender ? ` (${gender})` : ''}.`)
+      }
     } catch (err) {
       setError(
         err.message === 'Failed to fetch'
@@ -103,6 +184,23 @@ export default function SKUSearchModal({ onClose, onAdd }) {
     }
   }
 
+  const handleLoadMore = async () => {
+    if (!urlBuilder) return
+    setLoadingMore(true)
+    const H = { headers: { Accept: 'application/json' } }
+    try {
+      const url  = urlBuilder(offset, offset + PAGE_SIZE - 1)
+      const r    = await proxiedFetch(url, H)
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      const data = await r.json()
+      const flat = flattenProducts(data)
+      setSkus(prev => [...(prev || []), ...flat])
+      setOffset(o => o + PAGE_SIZE)
+      setHasMore(flat.length === PAGE_SIZE)
+    } catch { }
+    finally { setLoadingMore(false) }
+  }
+
   const toggle = (refId) =>
     setSelected(prev => {
       const next = new Set(prev)
@@ -110,10 +208,9 @@ export default function SKUSearchModal({ onClose, onAdd }) {
       return next
     })
 
-  const handleAdd = () => {
-    onAdd([...selected])
-    onClose()
-  }
+  const handleAdd = () => { onAdd([...selected]); onClose() }
+
+  const cat = CATEGORY_KEYS.find(c => c.key === categoryKey)
 
   return (
     <div className="sku-overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
@@ -123,6 +220,7 @@ export default function SKUSearchModal({ onClose, onAdd }) {
           <button className="sku-modal__close" onClick={onClose} type="button">✕</button>
         </div>
 
+        {/* Categoría + Orden */}
         <div className="sku-modal__filters">
           <div className="sku-pills">
             {CATEGORY_KEYS.map(c => (
@@ -150,20 +248,42 @@ export default function SKUSearchModal({ onClose, onAdd }) {
           </div>
         </div>
 
+        {/* Género — solo para categorías que lo soportan */}
+        {cat?.hasGender && (
+          <div className="sku-modal__filters sku-modal__filters--gender">
+            <span className="sku-modal__filter-label">Género</span>
+            <div className="sku-pills">
+              {[
+                { key: null,     label: 'Todos'  },
+                { key: 'mujer',  label: 'Mujer'  },
+                { key: 'hombre', label: 'Hombre' },
+              ].map(g => (
+                <button
+                  key={String(g.key)}
+                  type="button"
+                  className={`sku-pill${gender === g.key ? ' sku-pill--on' : ''}`}
+                  onClick={() => setGender(g.key)}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+            {cat.hasGender && !generoSpec && (
+              <span className="sku-modal__filter-hint">cargando filtros…</span>
+            )}
+          </div>
+        )}
+
         <form className="sku-modal__search-row" onSubmit={handleSearch}>
           <input
             className="sku-modal__query"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Marca, ej: Versace, Lancôme…"
+            placeholder="Marca o producto, ej: Versace, sauvage…"
             autoFocus
             spellCheck={false}
           />
-          <button
-            className="btn-primary"
-            type="submit"
-            disabled={loading || !query.trim()}
-          >
+          <button className="btn-primary" type="submit" disabled={loading || !query.trim()}>
             {loading ? '…' : 'Buscar'}
           </button>
         </form>
@@ -172,25 +292,40 @@ export default function SKUSearchModal({ onClose, onAdd }) {
           {error && <p className="sku-modal__msg sku-modal__msg--error">{error}</p>}
 
           {skus && skus.length > 0 && (
-            <ul className="sku-list">
-              {skus.map(sku => (
-                <li
-                  key={sku.itemId}
-                  className={`sku-list__item${selected.has(sku.refId) ? ' sku-list__item--on' : ''}`}
-                  onClick={() => toggle(sku.refId)}
-                >
-                  {sku.imageUrl
-                    ? <img className="sku-list__img" src={sku.imageUrl} alt={sku.name} />
-                    : <div className="sku-list__img sku-list__img--empty" />
-                  }
-                  <div className="sku-list__info">
-                    <span className="sku-list__name">{sku.name}</span>
-                    <span className="sku-list__id">{sku.refId}</span>
-                  </div>
-                  <span className="sku-list__check">✓</span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="sku-list">
+                {skus.map(sku => (
+                  <li
+                    key={sku.itemId}
+                    className={`sku-list__item${selected.has(sku.refId) ? ' sku-list__item--on' : ''}`}
+                    onClick={() => toggle(sku.refId)}
+                  >
+                    {sku.imageUrl
+                      ? <img className="sku-list__img" src={sku.imageUrl} alt={sku.name} />
+                      : <div className="sku-list__img sku-list__img--empty" />
+                    }
+                    <div className="sku-list__info">
+                      <span className="sku-list__name">{sku.name}</span>
+                      <span className="sku-list__id">{sku.refId}</span>
+                    </div>
+                    <span className="sku-list__check">✓</span>
+                  </li>
+                ))}
+              </ul>
+
+              {hasMore && (
+                <div className="sku-load-more">
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? 'Cargando…' : 'Ver 15 más'}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
 
