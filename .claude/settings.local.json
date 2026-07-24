@@ -40,7 +40,9 @@
       "Bash(curl -s --max-time 10 \"https://www.beauty24.com.ar/api/catalog_system/pub/sku/stockkeepingunitbyalternateid/LOB3458500\" -H \"Accept: application/json\")",
       "Bash(NODE_PATH=\"/c/Users/Equipo.NBK-EGIMENEZ/AppData/Local/npm-cache/_npx/e41f203b7505f1fb/node_modules\" node \"C:\\\\Users\\\\EQUIPO~1.NBK\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Equipo-NBK-EGIMENEZ-Desktop-Repositorios-landing-creator\\\\e622247a-7ee0-49d9-a7ad-be33de11c743\\\\scratchpad\\\\test-beauty24.cjs\")",
       "Bash(NODE_PATH=\"/c/Users/Equipo.NBK-EGIMENEZ/AppData/Local/npm-cache/_npx/e41f203b7505f1fb/node_modules\" node \"C:\\\\Users\\\\EQUIPO~1.NBK\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Equipo-NBK-EGIMENEZ-Desktop-Repositorios-landing-creator\\\\e622247a-7ee0-49d9-a7ad-be33de11c743\\\\scratchpad\\\\test-regression.cjs\")",
-      "Bash(NODE_PATH=\"/c/Users/Equipo.NBK-EGIMENEZ/AppData/Local/npm-cache/_npx/e41f203b7505f1fb/node_modules\" node \"C:\\\\Users\\\\EQUIPO~1.NBK\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Equipo-NBK-EGIMENEZ-Desktop-Repositorios-landing-creator\\\\e622247a-7ee0-49d9-a7ad-be33de11c743\\\\scratchpad\\\\test-banner-cat.cjs\")"
+      "Bash(NODE_PATH=\"/c/Users/Equipo.NBK-EGIMENEZ/AppData/Local/npm-cache/_npx/e41f203b7505f1fb/node_modules\" node \"C:\\\\Users\\\\EQUIPO~1.NBK\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Equipo-NBK-EGIMENEZ-Desktop-Repositorios-landing-creator\\\\e622247a-7ee0-49d9-a7ad-be33de11c743\\\\scratchpad\\\\test-banner-cat.cjs\")",
+      "Bash(NODE_PATH=\"/c/Users/Equipo.NBK-EGIMENEZ/AppData/Local/npm-cache/_npx/e41f203b7505f1fb/node_modules\" node \"C:\\\\Users\\\\EQUIPO~1.NBK\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Equipo-NBK-EGIMENEZ-Desktop-Repositorios-landing-creator\\\\e622247a-7ee0-49d9-a7ad-be33de11c743\\\\scratchpad\\\\test-sort-calendar.cjs\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" --max-time 8 \"https://firestore.googleapis.com/\")"
     ]
   }
 }

@@ -413,6 +413,7 @@ export default function Calendar() {
   const [viewYear,  setViewYear]  = useState(today.getFullYear())
   const [viewMonth, setViewMonth] = useState(today.getMonth())
   const [events,    setEvents]    = useState([])
+  const [storeFilter, setStoreFilter] = useState(null) // null = todas las tiendas juntas
   const [selectedDay,  setSelectedDay]  = useState(null)
   // activeModal: null | { mode: 'detail'|'edit', event: obj|null }
   const [activeModal, setActiveModal] = useState(null)
@@ -512,11 +513,15 @@ export default function Calendar() {
   const weeks       = getCalendarWeeks(viewYear, viewMonth)
   const selectedStr = selectedDay ? toDateStr(selectedDay) : null
 
+  const visibleEvents = storeFilter
+    ? events.filter(e => getStoreIds(e).includes(storeFilter))
+    : events
+
   const dayEvents = selectedDay
-    ? events.filter(e => selectedDay >= parseDate(e.startDate) && selectedDay <= parseDate(e.endDate))
+    ? visibleEvents.filter(e => selectedDay >= parseDate(e.startDate) && selectedDay <= parseDate(e.endDate))
     : []
 
-  const panelEvents = events
+  const panelEvents = visibleEvents
     .filter(e => parseDate(e.endDate) >= new Date(viewYear, viewMonth, 1))
     .slice(0, 12)
 
@@ -564,6 +569,27 @@ export default function Calendar() {
         </button>
       </div>
 
+      {/* ── Store filter ─────────────────────────── */}
+      <div className="cal-store-filter-bar">
+        <button
+          className={`cal-store-toggle${storeFilter === null ? ' cal-store-toggle--active' : ''}`}
+          style={{ '--sc': '#111827', '--sc-text': '#fff' }}
+          onClick={() => setStoreFilter(null)}
+        >
+          Todas
+        </button>
+        {STORES.map(s => (
+          <button
+            key={s.id}
+            className={`cal-store-toggle${storeFilter === s.id ? ' cal-store-toggle--active' : ''}`}
+            style={{ '--sc': s.color, '--sc-text': s.textColor }}
+            onClick={() => setStoreFilter(s.id)}
+          >
+            {s.name}
+          </button>
+        ))}
+      </div>
+
       {/* ── Body ─────────────────────────────────── */}
       <div className="cal-body">
 
@@ -575,7 +601,7 @@ export default function Calendar() {
 
           <div className="cal-grid">
             {weeks.map((week, wi) => {
-              const weekEvs = assignLanes(getWeekEvents(week, events))
+              const weekEvs = assignLanes(getWeekEvents(week, visibleEvents))
               const maxLane = weekEvs.length ? Math.max(...weekEvs.map(e => e.lane)) : -1
               const weekH   = EV_TOP + (maxLane + 1) * EV_H + 10
 
@@ -586,7 +612,7 @@ export default function Calendar() {
                     const inMonth = day.getMonth() === viewMonth
                     const isToday = toDateStr(day) === todayStr
                     const isSel   = selectedStr === toDateStr(day)
-                    const hasEv   = events.some(e =>
+                    const hasEv   = visibleEvents.some(e =>
                       day >= parseDate(e.startDate) && day <= parseDate(e.endDate)
                     )
                     return (

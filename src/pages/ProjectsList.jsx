@@ -153,6 +153,7 @@ export default function ProjectsList() {
   const [calEvents,      setCalEvents]      = useState([])
   const [loading,        setLoading]        = useState(true)
   const [search,         setSearch]         = useState('')
+  const [sortBy,         setSortBy]         = useState('edited') // 'edited' | 'calendar'
   const [confirmDelete,  setConfirmDelete]  = useState(null)
   const [assigningId,    setAssigningId]    = useState(null)
   const [showNewModal,   setShowNewModal]   = useState(false)
@@ -188,6 +189,18 @@ export default function ProjectsList() {
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     (p.projectCode && p.projectCode.toLowerCase().includes(search.toLowerCase()))
   )
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === 'calendar') {
+      const evA = a.eventId ? calEvents.find(e => e.id === a.eventId) : null
+      const evB = b.eventId ? calEvents.find(e => e.id === b.eventId) : null
+      if (evA && evB) return evA.startDate.localeCompare(evB.startDate)
+      if (evA) return -1
+      if (evB) return 1
+      return b.savedAt - a.savedAt
+    }
+    return b.savedAt - a.savedAt
+  })
 
   const handleOpen = (project) => {
     navigate(`/store/${storeId}/editor?p=${project.id}`)
@@ -270,11 +283,27 @@ export default function ProjectsList() {
           )}
         </div>
 
+        <div className="pl-sort-wrap">
+          <span className="pl-sort-label">Ordenar por</span>
+          <button
+            className={`pl-sort-btn${sortBy === 'edited' ? ' pl-sort-btn--on' : ''}`}
+            onClick={() => setSortBy('edited')}
+          >
+            Fecha de edición
+          </button>
+          <button
+            className={`pl-sort-btn${sortBy === 'calendar' ? ' pl-sort-btn--on' : ''}`}
+            onClick={() => setSortBy('calendar')}
+          >
+            Fecha de calendario
+          </button>
+        </div>
+
         {loading ? (
           <div className="pl-empty">
             <p>Cargando proyectos...</p>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : sorted.length === 0 ? (
           <div className="pl-empty">
             {search
               ? <p>No hay resultados para <strong>"{search}"</strong></p>
@@ -288,7 +317,7 @@ export default function ProjectsList() {
           </div>
         ) : (
           <ul className="pl-list">
-            {filtered.map(p => {
+            {sorted.map(p => {
               const ev = p.eventId ? calEvents.find(e => e.id === p.eventId) : null
               return (
                 <li key={p.id} className="pl-item">

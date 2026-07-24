@@ -2272,6 +2272,39 @@
   &:hover { color: #64748b; background: #f1f5f9; }
 }
 
+.pl-sort-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: -8px;
+}
+
+.pl-sort-label {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-right: 2px;
+}
+
+.pl-sort-btn {
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+
+  &:hover { border-color: #cbd5e1; color: #334155; }
+
+  &.pl-sort-btn--on {
+    background: #0f172a;
+    color: #fff;
+    border-color: transparent;
+  }
+}
+
 .pl-empty {
   flex: 1;
   display: flex;
