@@ -199,6 +199,11 @@ export default function Canvas({ items, fullscreen, compact, onSetCompact, store
   }
 
   const handleItemDragStart = (e, index) => {
+    const active = document.activeElement
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+      e.preventDefault()
+      return
+    }
     e.stopPropagation(); e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('application/canvas-reorder', String(index)); setReorderFrom(index)
   }
@@ -279,7 +284,9 @@ export default function Canvas({ items, fullscreen, compact, onSetCompact, store
                           onChange={e => setBarEditValue(e.target.value)}
                           onBlur={() => commitBarEdit(item.instanceId)}
                           onKeyDown={e => handleBarKeyDown(e, item.instanceId)}
+                          onMouseDown={e => e.stopPropagation()}
                           size={Math.max(24, (barEditValue?.length || 0) + 2)}
+                          draggable={false}
                           autoFocus
                         />
                       )}

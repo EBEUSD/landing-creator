@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
+import { getCatalogBase, getStoreName } from '../stores'
 
 const PROXY = import.meta.env.DEV
   ? (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
   : (url) => `/api/vtex?url=${encodeURIComponent(url)}`
-const VTEX_SEARCH = 'https://www.perfumeriasrouge.com/api/catalog_system/pub/products/search'
-const VTEX_FACETS = 'https://www.perfumeriasrouge.com/api/catalog_system/pub/facets/search'
-const VTEX_BRANDS = 'https://www.perfumeriasrouge.com/api/catalog_system/pub/brand/list'
 
 const proxiedFetch = (url, opts) => fetch(PROXY(url), opts)
 
@@ -42,9 +40,9 @@ function flattenProducts(raw) {
 
 // Descubrimos el specificationFilter ID de "Género" desde la API de facetas.
 // generoSpec = { id: "194", hombre: "Hombre", mujer: "Mujer" } (o null si no carga)
-async function fetchGeneroSpec() {
+async function fetchGeneroSpec(facetsUrl) {
   try {
-    const url = `${VTEX_FACETS}/perfumes-y-fragancias?map=c`
+    const url = `${facetsUrl}/perfumes-y-fragancias?map=c`
     const r   = await proxiedFetch(url, { headers: { Accept: 'application/json' } })
     if (!r.ok) return null
     const data = await r.json()
@@ -72,7 +70,13 @@ async function fetchGeneroSpec() {
   } catch { return null }
 }
 
-export default function SKUSearchModal({ onClose, onAdd }) {
+export default function SKUSearchModal({ storeId, onClose, onAdd }) {
+  const catalogBase = getCatalogBase(storeId)
+  const storeName   = getStoreName(storeId)
+  const VTEX_SEARCH = `${catalogBase}/api/catalog_system/pub/products/search`
+  const VTEX_FACETS = `${catalogBase}/api/catalog_system/pub/facets/search`
+  const VTEX_BRANDS = `${catalogBase}/api/catalog_system/pub/brand/list`
+
   const [query, setQuery]             = useState('')
   const [categoryKey, setCategoryKey] = useState('perfumes')
   const [gender, setGender]           = useState(null) // null | 'hombre' | 'mujer'
@@ -89,14 +93,15 @@ export default function SKUSearchModal({ onClose, onAdd }) {
   const [offset, setOffset]           = useState(0)
 
   useEffect(() => {
+    if (!catalogBase) return
     proxiedFetch(VTEX_BRANDS, { headers: { Accept: 'application/json' } })
       .then(r => r.json())
       .then(data => setBrands(data.filter(b => b.isActive)))
       .catch(() => {})
 
     // Descubrir spec ID de Género al montar el componente
-    fetchGeneroSpec().then(spec => { if (spec) setGeneroSpec(spec) })
-  }, [])
+    fetchGeneroSpec(VTEX_FACETS).then(spec => { if (spec) setGeneroSpec(spec) })
+  }, [catalogBase])
 
   useEffect(() => {
     const cat = CATEGORY_KEYS.find(c => c.key === categoryKey)
@@ -176,7 +181,7 @@ export default function SKUSearchModal({ onClose, onAdd }) {
     } catch (err) {
       setError(
         err.message === 'Failed to fetch'
-          ? 'Sin conexión con Rouge. Puede que la API no permita acceso externo (CORS).'
+          ? `Sin conexión con ${storeName}. Puede que la API no permita acceso externo (CORS).`
           : `Error: ${err.message}`
       )
     } finally {
@@ -216,7 +221,7 @@ export default function SKUSearchModal({ onClose, onAdd }) {
     <div className="sku-overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
       <div className="sku-modal">
         <div className="sku-modal__head">
-          <span className="sku-modal__title">Buscar SKUs · Rouge</span>
+          <span className="sku-modal__title">Buscar SKUs · {storeName}</span>
           <button className="sku-modal__close" onClick={onClose} type="button">✕</button>
         </div>
 

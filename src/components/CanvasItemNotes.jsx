@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import SKUSearchModal from './SKUSearchModal'
+import { getCatalogBase, getStoreName } from '../stores'
 
 // ── PopoverInput ──────────────────────────────────
 function PopoverInput({ value, onChange, placeholder, className }) {
@@ -63,9 +64,9 @@ const PROXY = import.meta.env.DEV
   ? (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
   : (url) => `/api/vtex?url=${encodeURIComponent(url)}`
 
-async function fetchSkuImage(refId) {
-  if (SKU_IMG_CACHE.has(refId)) return SKU_IMG_CACHE.get(refId)
-  const base = 'https://www.perfumeriasrouge.com'
+async function fetchSkuInfo(refId, base) {
+  const cacheKey = `${base}:${refId}`
+  if (SKU_IMG_CACHE.has(cacheKey)) return SKU_IMG_CACHE.get(cacheKey)
   const H = { headers: { Accept: 'application/json' } }
   for (const path of [
     `/api/catalog_system/pub/sku/stockkeepingunitbyid/${refId}`,
@@ -76,33 +77,45 @@ async function fetchSkuImage(refId) {
       if (!r.ok) continue
       const data = await r.json()
       const url = data?.Images?.[0]?.ImageUrl ?? null
-      if (url) { SKU_IMG_CACHE.set(refId, url); return url }
+      if (url) {
+        const info = { url, pdpUrl: data?.DetailUrl ? `${base}${data.DetailUrl}` : null }
+        SKU_IMG_CACHE.set(cacheKey, info)
+        return info
+      }
     } catch {}
   }
-  SKU_IMG_CACHE.set(refId, null)
-  return null
+  const info = { url: null, pdpUrl: null }
+  SKU_IMG_CACHE.set(cacheKey, info)
+  return info
 }
 
 // ── SkuChip ───────────────────────────────────────
-function SkuChip({ refId, canFetch, onRemove }) {
+function SkuChip({ refId, catalogBase, storeName, onRemove }) {
   const chipRef = useRef(null)
-  const [imgUrl, setImgUrl] = useState(undefined)
+  const hideTimer = useRef(null)
+  const [info, setInfo] = useState(undefined)
   const [tooltipPos, setTooltipPos] = useState(null)
   const [hovered, setHovered] = useState(false)
 
-  const handleMouseEnter = () => {
+  const cancelHide = () => { clearTimeout(hideTimer.current) }
+
+  const showTooltip = () => {
+    cancelHide()
     setHovered(true)
     if (chipRef.current) {
       const r = chipRef.current.getBoundingClientRect()
       setTooltipPos({ x: r.left + r.width / 2, y: r.top })
     }
-    if (!canFetch || imgUrl !== undefined) return
-    fetchSkuImage(refId).then(setImgUrl)
+    if (!catalogBase || info !== undefined) return
+    fetchSkuInfo(refId, catalogBase).then(setInfo)
   }
 
-  const handleMouseLeave = () => {
-    setHovered(false)
-    setTooltipPos(null)
+  const scheduleHide = () => {
+    cancelHide()
+    hideTimer.current = setTimeout(() => {
+      setHovered(false)
+      setTooltipPos(null)
+    }, 150)
   }
 
   return (
@@ -110,8 +123,8 @@ function SkuChip({ refId, canFetch, onRemove }) {
       <span
         ref={chipRef}
         className={`sku-chip${hovered ? ' sku-chip--hovered' : ''}`}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={showTooltip}
+        onMouseLeave={scheduleHide}
       >
         <span className="sku-chip__label">{refId}</span>
         <button
@@ -122,11 +135,27 @@ function SkuChip({ refId, canFetch, onRemove }) {
           title="Quitar SKU"
         >✕</button>
       </span>
-      {tooltipPos && imgUrl && createPortal(
-        <div className="sku-chip__tooltip" style={{ left: tooltipPos.x, top: tooltipPos.y - 8 }}>
-          <img src={imgUrl} alt={refId} />
-          <span className="sku-chip__tooltip-id">{refId}</span>
-        </div>,
+      {tooltipPos && info?.url && createPortal(
+        info.pdpUrl ? (
+          <a
+            className="sku-chip__tooltip sku-chip__tooltip--link"
+            style={{ left: tooltipPos.x, top: tooltipPos.y - 8 }}
+            href={info.pdpUrl}
+            target="_blank"
+            rel="noreferrer"
+            title={`Ver producto en ${storeName}`}
+            onMouseEnter={cancelHide}
+            onMouseLeave={scheduleHide}
+          >
+            <img src={info.url} alt={refId} />
+            <span className="sku-chip__tooltip-id">{refId}</span>
+          </a>
+        ) : (
+          <div className="sku-chip__tooltip" style={{ left: tooltipPos.x, top: tooltipPos.y - 8 }}>
+            <img src={info.url} alt={refId} />
+            <span className="sku-chip__tooltip-id">{refId}</span>
+          </div>
+        ),
         document.body
       )}
     </>
@@ -134,14 +163,29 @@ function SkuChip({ refId, canFetch, onRemove }) {
 }
 
 // ── SKU manual modal ──────────────────────────────
-function SkuManualModal({ existing, onSave, onClose }) {
+function SkuManualModal({ existing, onSave, onClose, allowSearch, storeId }) {
   const [inputs, setInputs] = useState(
     existing.length > 0 ? existing : ['']
   )
+  const [askingNext, setAskingNext] = useState(false)
+  const [searching, setSearching] = useState(false)
 
   const update = (i, val) => setInputs(prev => prev.map((v, j) => j === i ? val : v))
   const add    = () => setInputs(prev => [...prev, ''])
   const remove = (i) => setInputs(prev => prev.length === 1 ? [''] : prev.filter((_, j) => j !== i))
+
+  const handleAddAnother = () => {
+    if (allowSearch) setAskingNext(true)
+    else add()
+  }
+
+  const handleSearchAdd = (ids) => {
+    setInputs(prev => {
+      const clean = prev.filter(v => v.trim())
+      return [...clean, ...ids]
+    })
+    setSearching(false)
+  }
 
   const handleSave = () => {
     onSave(inputs.map(s => s.trim()).filter(Boolean))
@@ -149,7 +193,28 @@ function SkuManualModal({ existing, onSave, onClose }) {
   }
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); add() }
+    if (e.key === 'Enter') { e.preventDefault(); handleAddAnother() }
+  }
+
+  if (askingNext) {
+    return (
+      <SkuPickerModal
+        storeName={getStoreName(storeId)}
+        onClose={() => setAskingNext(false)}
+        onManual={() => { setAskingNext(false); add() }}
+        onSearch={() => { setAskingNext(false); setSearching(true) }}
+      />
+    )
+  }
+
+  if (searching) {
+    return (
+      <SKUSearchModal
+        storeId={storeId}
+        onClose={() => setSearching(false)}
+        onAdd={handleSearchAdd}
+      />
+    )
   }
 
   return createPortal(
@@ -177,7 +242,7 @@ function SkuManualModal({ existing, onSave, onClose }) {
             </div>
           ))}
         </div>
-        <button className="sku-manual__add-row" onClick={add} type="button">
+        <button className="sku-manual__add-row" onClick={handleAddAnother} type="button">
           + Agregar otro SKU
         </button>
         <div className="sku-manual__footer">
@@ -191,7 +256,7 @@ function SkuManualModal({ existing, onSave, onClose }) {
 }
 
 // ── SKU picker modal ──────────────────────────────
-function SkuPickerModal({ onManual, onSearch, onClose }) {
+function SkuPickerModal({ onManual, onSearch, onClose, storeName }) {
   return createPortal(
     <div className="sku-picker-overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
       <div className="sku-picker">
@@ -206,7 +271,7 @@ function SkuPickerModal({ onManual, onSearch, onClose }) {
             <button className="sku-picker__opt" onClick={onSearch}>
               <span className="sku-picker__opt-icon">⌕</span>
               <span className="sku-picker__opt-label">Buscar en tienda</span>
-              <span className="sku-picker__opt-desc">Buscá por marca en Rouge</span>
+              <span className="sku-picker__opt-desc">Buscá por marca en {storeName}</span>
             </button>
           )}
         </div>
@@ -333,6 +398,7 @@ export function normalizeNotes(notes) {
 
 // ── Main component ────────────────────────────────
 export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }) {
+  const catalogBase = getCatalogBase(storeId)
   const rows = normalizeNotes(notes)
   const [searchRowId, setSearchRowId] = useState(null)
   const [pickerRowId, setPickerRowId] = useState(null)
@@ -386,7 +452,7 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
   }
 
   const openSkuEntry = (rowId) => {
-    if (storeId === 'rouge') {
+    if (catalogBase) {
       setPickerRowId(rowId)
     } else {
       setManualRowId(rowId)
@@ -423,15 +489,17 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
     <div className="canvas-notes">
       {searchRowId && (
         <SKUSearchModal
+          storeId={storeId}
           onClose={() => setSearchRowId(null)}
           onAdd={(ids) => handleAddSkus(searchRowId, ids)}
         />
       )}
       {pickerRowId && (
         <SkuPickerModal
+          storeName={getStoreName(storeId)}
           onClose={() => setPickerRowId(null)}
           onManual={() => { const id = pickerRowId; setPickerRowId(null); setManualRowId(id) }}
-          onSearch={storeId === 'rouge' ? () => { const id = pickerRowId; setPickerRowId(null); setSearchRowId(id) } : null}
+          onSearch={catalogBase ? () => { const id = pickerRowId; setPickerRowId(null); setSearchRowId(id) } : null}
         />
       )}
       {manualRowId && (() => {
@@ -440,6 +508,8 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
         return (
           <SkuManualModal
             existing={existing}
+            allowSearch={!!catalogBase}
+            storeId={storeId}
             onSave={(skus) => updateItem(manualRowId, 'skus', skus.join(' /// '))}
             onClose={() => setManualRowId(null)}
           />
@@ -523,7 +593,8 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
                           <SkuChip
                             key={i}
                             refId={refId}
-                            canFetch={storeId === 'rouge'}
+                            catalogBase={catalogBase}
+                            storeName={getStoreName(storeId)}
                             onRemove={() => {
                               const next = skuTokens.filter((_, j) => j !== i)
                               updateItem(row.id, 'skus', next.join(' /// '))

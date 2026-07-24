@@ -159,8 +159,8 @@ const DEFAULT_PALETTE = [
     selectedVariantId: '4-col',
     variants: [
       { id: '2-col',    name: '2 col',    layout: 'grid', cols: 2, width: 600, height: 800, widthMb: null, heightMb: null },
-      { id: '3-col',    name: '3 col',    layout: 'grid', cols: 3, width: 800, height: 400, widthMb: 600, heightMb: 900 },
-      { id: '4-col',    name: '4 col',    layout: 'grid', cols: 4, width: 600, height: 800, widthMb: null, heightMb: null },
+      { id: '3-col',    name: '3 col',    layout: 'grid', cols: 3, width: 1000, height: 480, widthMb: 215, heightMb: 360 },
+      { id: '4-col',    name: '4 col',    layout: 'grid', cols: 4, width: 500, height: 660, widthMb: 215, heightMb: 360 },
       { id: '5-slider', name: '5 Slider', layout: 'grid', cols: 5, width: 600, height: 800, widthMb: null, heightMb: null },
     ],
   },

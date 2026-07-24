@@ -35,7 +35,9 @@ function LabelArea({
           onChange={e => onEditChange(e.target.value)}
           onBlur={onEditCommit}
           onKeyDown={onKeyDown}
+          onMouseDown={e => e.stopPropagation()}
           size={Math.max(14, (editValue?.length || 0) + 2)}
+          draggable={false}
           autoFocus
         />
         <span className="ph__dims">Medidas: {dims}</span>
@@ -60,7 +62,9 @@ function LabelArea({
           onBlur={onDimsCommit}
           onKeyDown={onDimsKeyDown}
           onClick={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
           size={Math.max(14, (dimsEditValue?.length || 0) + 2)}
+          draggable={false}
           autoFocus
         />
       ) : (

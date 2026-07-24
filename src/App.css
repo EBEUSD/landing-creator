@@ -1004,7 +1004,7 @@
   font-size: 13px;
   font-family: var(--mono);
   text-align: center;
-  padding: 8px 14px;
+  padding: 14px 16px;
   outline: none;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.22);
   white-space: nowrap;
@@ -1747,7 +1747,7 @@
   font-size: 13px;
   font-family: var(--mono);
   text-align: center;
-  padding: 8px 14px;
+  padding: 14px 16px;
   outline: none;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
   pointer-events: auto;
@@ -1782,7 +1782,7 @@
   font-weight: 500;
   font-family: inherit;
   text-align: center;
-  padding: 8px 14px;
+  padding: 14px 16px;
   outline: none;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
   pointer-events: auto;
@@ -3066,6 +3066,17 @@
     height: 120px;
     object-fit: contain;
     display: block;
+  }
+}
+
+.sku-chip__tooltip--link {
+  pointer-events: auto;
+  cursor: pointer;
+  text-decoration: none;
+  transition: box-shadow 0.15s ease;
+
+  &:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.28);
   }
 }
 
