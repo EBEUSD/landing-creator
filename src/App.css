@@ -2169,21 +2169,6 @@
   &:hover { background: #1e293b; }
 }
 
-.pl-clear-btn {
-  background: transparent;
-  color: #ef4444;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.15s, border-color 0.15s;
-
-  &:hover { background: #fee2e2; border-color: #ef4444; }
-}
-
 .pl-item__name-row {
   display: flex;
   align-items: center;
@@ -2275,6 +2260,7 @@
 .pl-sort-wrap {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   margin-top: -8px;
 }
@@ -2283,6 +2269,13 @@
   font-size: 12px;
   color: #94a3b8;
   margin-right: 2px;
+}
+
+.pl-sort-sep {
+  width: 1px;
+  height: 16px;
+  background: #e2e8f0;
+  margin: 0 2px;
 }
 
 .pl-sort-btn {
@@ -3049,12 +3042,17 @@
   font-weight: 600;
   white-space: nowrap;
   max-width: 100%;
-  cursor: default;
+  cursor: pointer;
   transition: background 0.12s, color 0.12s;
 
   &.sku-chip--hovered {
     background: #e5e7eb;
     color: #374151;
+  }
+
+  &.sku-chip--copied {
+    background: #dcfce7;
+    color: #166534;
   }
 }
 

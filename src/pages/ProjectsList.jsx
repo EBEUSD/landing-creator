@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   collection, onSnapshot, deleteDoc, doc, updateDoc,
-  addDoc, query, orderBy, getDocs,
+  addDoc, query, orderBy,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { STORES, draftKey } from '../stores'
@@ -154,6 +154,8 @@ export default function ProjectsList() {
   const [loading,        setLoading]        = useState(true)
   const [search,         setSearch]         = useState('')
   const [sortBy,         setSortBy]         = useState('edited') // 'edited' | 'calendar'
+  const [sortDir,        setSortDir]        = useState('asc') // 'asc' | 'desc' (fecha de calendario)
+  const [calendarRange,  setCalendarRange]  = useState(null) // null | 7 | 14
   const [confirmDelete,  setConfirmDelete]  = useState(null)
   const [assigningId,    setAssigningId]    = useState(null)
   const [showNewModal,   setShowNewModal]   = useState(false)
@@ -190,11 +192,23 @@ export default function ProjectsList() {
     (p.projectCode && p.projectCode.toLowerCase().includes(search.toLowerCase()))
   )
 
-  const sorted = [...filtered].sort((a, b) => {
+  const rangeFiltered = (sortBy === 'calendar' && calendarRange)
+    ? filtered.filter(p => {
+        const ev = p.eventId ? calEvents.find(e => e.id === p.eventId) : null
+        if (!ev) return false
+        const today = toDateStr(new Date())
+        const limit = toDateStr(new Date(Date.now() + calendarRange * 86400000))
+        return ev.startDate >= today && ev.startDate <= limit
+      })
+    : filtered
+
+  const sorted = [...rangeFiltered].sort((a, b) => {
     if (sortBy === 'calendar') {
       const evA = a.eventId ? calEvents.find(e => e.id === a.eventId) : null
       const evB = b.eventId ? calEvents.find(e => e.id === b.eventId) : null
-      if (evA && evB) return evA.startDate.localeCompare(evB.startDate)
+      if (evA && evB) return sortDir === 'asc'
+        ? evA.startDate.localeCompare(evB.startDate)
+        : evB.startDate.localeCompare(evA.startDate)
       if (evA) return -1
       if (evB) return 1
       return b.savedAt - a.savedAt
@@ -235,12 +249,6 @@ export default function ProjectsList() {
     setConfirmDelete(null)
   }
 
-  const handleDeleteAll = async () => {
-    if (!window.confirm(`¿Vaciar TODOS los proyectos de ${store.name}? Esta acción no se puede deshacer.`)) return
-    const snap = await getDocs(collection(db, 'stores', storeId, 'projects'))
-    await Promise.all(snap.docs.map(d => deleteDoc(d.ref)))
-  }
-
   const handleAssignEvent = async (projectId, evId) => {
     await updateDoc(doc(db, 'stores', storeId, 'projects', projectId), { eventId: evId })
     setAssigningId(null)
@@ -262,11 +270,6 @@ export default function ProjectsList() {
         <button className="pl-new-btn" onClick={handleNew}>
           + Nuevo proyecto
         </button>
-        {projects.length > 0 && (
-          <button className="pl-clear-btn" onClick={handleDeleteAll} title="Vaciar todos los proyectos">
-            Vaciar
-          </button>
-        )}
       </div>
 
       <div className="pl-body">
@@ -297,6 +300,39 @@ export default function ProjectsList() {
           >
             Fecha de calendario
           </button>
+
+          {sortBy === 'calendar' && (
+            <>
+              <span className="pl-sort-sep" />
+              <button
+                className={`pl-sort-btn${sortDir === 'asc' ? ' pl-sort-btn--on' : ''}`}
+                onClick={() => setSortDir('asc')}
+                title="Más próximos primero"
+              >
+                ↑ Ascendente
+              </button>
+              <button
+                className={`pl-sort-btn${sortDir === 'desc' ? ' pl-sort-btn--on' : ''}`}
+                onClick={() => setSortDir('desc')}
+                title="Más lejanos primero"
+              >
+                ↓ Descendente
+              </button>
+              <span className="pl-sort-sep" />
+              <button
+                className={`pl-sort-btn${calendarRange === 7 ? ' pl-sort-btn--on' : ''}`}
+                onClick={() => setCalendarRange(calendarRange === 7 ? null : 7)}
+              >
+                Próximos 7 días
+              </button>
+              <button
+                className={`pl-sort-btn${calendarRange === 14 ? ' pl-sort-btn--on' : ''}`}
+                onClick={() => setCalendarRange(calendarRange === 14 ? null : 14)}
+              >
+                Próximos 14 días
+              </button>
+            </>
+          )}
         </div>
 
         {loading ? (

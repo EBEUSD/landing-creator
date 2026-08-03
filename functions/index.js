@@ -1,6 +1,6 @@
 const { onRequest } = require('firebase-functions/v2/https')
 
-exports.vtex = onRequest({ cors: true, minInstances: 1 }, async (req, res) => {
+exports.vtex = onRequest({ cors: true }, async (req, res) => {
   const url = req.query.url
   if (!url || !url.includes('perfumeriasrouge.com')) {
     return res.status(400).json({ error: 'Invalid URL' })

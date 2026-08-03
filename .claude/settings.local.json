@@ -42,7 +42,21 @@
       "Bash(NODE_PATH=\"/c/Users/Equipo.NBK-EGIMENEZ/AppData/Local/npm-cache/_npx/e41f203b7505f1fb/node_modules\" node \"C:\\\\Users\\\\EQUIPO~1.NBK\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Equipo-NBK-EGIMENEZ-Desktop-Repositorios-landing-creator\\\\e622247a-7ee0-49d9-a7ad-be33de11c743\\\\scratchpad\\\\test-regression.cjs\")",
       "Bash(NODE_PATH=\"/c/Users/Equipo.NBK-EGIMENEZ/AppData/Local/npm-cache/_npx/e41f203b7505f1fb/node_modules\" node \"C:\\\\Users\\\\EQUIPO~1.NBK\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Equipo-NBK-EGIMENEZ-Desktop-Repositorios-landing-creator\\\\e622247a-7ee0-49d9-a7ad-be33de11c743\\\\scratchpad\\\\test-banner-cat.cjs\")",
       "Bash(NODE_PATH=\"/c/Users/Equipo.NBK-EGIMENEZ/AppData/Local/npm-cache/_npx/e41f203b7505f1fb/node_modules\" node \"C:\\\\Users\\\\EQUIPO~1.NBK\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-Equipo-NBK-EGIMENEZ-Desktop-Repositorios-landing-creator\\\\e622247a-7ee0-49d9-a7ad-be33de11c743\\\\scratchpad\\\\test-sort-calendar.cjs\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" --max-time 8 \"https://firestore.googleapis.com/\")"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" --max-time 8 \"https://firestore.googleapis.com/\")",
+      "Bash(git log *)",
+      "Bash(firebase --version)",
+      "Bash(curl -s \"https://firestore.googleapis.com/v1/projects/landing-creator-469a5/databases/\\(default\\)/documents/stores/rouge/projects?pageSize=5\")",
+      "Bash(firebase login:list)",
+      "Bash(firebase firestore:delete --help)",
+      "Bash(gcloud --version)",
+      "Bash(gcloud auth *)",
+      "Bash(firebase deploy *)",
+      "Bash(curl -s \"https://firestore.googleapis.com/v1/projects/landing-creator-469a5/databases/\\(default\\)/documents/stores/rouge/projects?pageSize=3\")",
+      "Bash(node -e \"const v=JSON.parse\\(require\\('fs'\\).readFileSync\\(0,'utf8'\\)\\); console.log\\(v.filter\\(x=>x.startsWith\\('6.'\\)\\).slice\\(-5\\)\\); console.log\\(v.slice\\(-10\\)\\)\")",
+      "Bash(npm install *)",
+      "Bash(node -e \"const f = require\\('./index.js'\\); console.log\\(typeof f.vtex\\)\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"https://vtex-iemgegyuwq-uc.a.run.app?url=https://www.perfumeriasrouge.com/api/catalog_system/pub/products/search?_from=0\")",
+      "Bash(npm run *)"
     ]
   }
 }

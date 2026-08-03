@@ -93,9 +93,20 @@ async function fetchSkuInfo(refId, base) {
 function SkuChip({ refId, catalogBase, storeName, onRemove }) {
   const chipRef = useRef(null)
   const hideTimer = useRef(null)
+  const copiedTimer = useRef(null)
   const [info, setInfo] = useState(undefined)
   const [tooltipPos, setTooltipPos] = useState(null)
   const [hovered, setHovered] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = (e) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(refId).then(() => {
+      setCopied(true)
+      clearTimeout(copiedTimer.current)
+      copiedTimer.current = setTimeout(() => setCopied(false), 1200)
+    })
+  }
 
   const cancelHide = () => { clearTimeout(hideTimer.current) }
 
@@ -122,11 +133,13 @@ function SkuChip({ refId, catalogBase, storeName, onRemove }) {
     <>
       <span
         ref={chipRef}
-        className={`sku-chip${hovered ? ' sku-chip--hovered' : ''}`}
+        className={`sku-chip${hovered ? ' sku-chip--hovered' : ''}${copied ? ' sku-chip--copied' : ''}`}
         onMouseEnter={showTooltip}
         onMouseLeave={scheduleHide}
+        onClick={handleCopy}
+        title={copied ? 'Copiado' : 'Click para copiar SKU'}
       >
-        <span className="sku-chip__label">{refId}</span>
+        <span className="sku-chip__label">{copied ? 'Copiado ✓' : refId}</span>
         <button
           className="sku-chip__remove"
           onClick={e => { e.stopPropagation(); onRemove() }}
