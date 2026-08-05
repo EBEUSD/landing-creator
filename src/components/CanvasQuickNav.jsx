@@ -19,63 +19,95 @@ function scrollToItem(instanceId) {
   }
 }
 
-export default function CanvasQuickNav({ canvas }) {
-  const [open, setOpen] = useState(false)
+export default function CanvasQuickNav({ canvas, onReorder }) {
+  const [open, setOpen]         = useState(false)
+  const [dragFrom, setDragFrom] = useState(null)
+  const [dragOver, setDragOver] = useState(null)
 
-  const pending = canvas
-    .map((item, idx) => {
-      const rows = normalizeNotes(item.notes)
-      const counts = {}
-      rows.forEach(row => {
-        if (row.status && PENDING_SET.has(row.status)) {
-          counts[row.status] = (counts[row.status] || 0) + 1
-        }
-      })
-      return Object.keys(counts).length > 0 ? { item, idx, counts } : null
+  const withCounts = canvas.map((item, idx) => {
+    const rows = normalizeNotes(item.notes)
+    const counts = {}
+    rows.forEach(row => {
+      if (row.status && PENDING_SET.has(row.status)) {
+        counts[row.status] = (counts[row.status] || 0) + 1
+      }
     })
-    .filter(Boolean)
+    return { item, idx, counts, hasPending: Object.keys(counts).length > 0 }
+  })
 
-  if (pending.length === 0) return null
+  const pendingCount = withCounts.filter(w => w.hasPending).length
+
+  if (canvas.length === 0) return null
 
   return (
     <div className={`qnav${open ? ' qnav--open' : ''}`}>
       <button
         className="qnav__tab"
         onClick={() => setOpen(o => !o)}
-        title={open ? 'Cerrar panel' : 'Ver pendientes'}
+        title={open ? 'Cerrar panel' : 'Ver y mover componentes'}
       >
         {open ? '›' : '‹'}
-        {!open && <span className="qnav__tab-badge">{pending.length}</span>}
+        {!open && pendingCount > 0 && <span className="qnav__tab-badge">{pendingCount}</span>}
       </button>
 
       <div className="qnav__panel">
         <div className="qnav__head">
-          <span className="qnav__head-label">Para completar</span>
-          <span className="qnav__head-count">{pending.length}</span>
+          <span className="qnav__head-label">Componentes</span>
+          <span className="qnav__head-count">{canvas.length}</span>
         </div>
         <div className="qnav__list">
-          {pending.map(({ item, idx, counts }) => (
-            <button
+          {withCounts.map(({ item, idx, counts, hasPending }) => (
+            <div
               key={item.instanceId}
-              className="qnav__item"
-              onClick={() => scrollToItem(item.instanceId)}
-              title={`Ir a: ${item.label || item.name}`}
+              className={`qnav__item${hasPending ? ' qnav__item--pending' : ''}${dragOver === idx && dragFrom !== idx ? ' qnav__item--drop' : ''}${dragFrom === idx ? ' qnav__item--dragging' : ''}`}
+              onDragOver={e => {
+                if (dragFrom === null) return
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'move'
+                if (dragOver !== idx) setDragOver(idx)
+              }}
+              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(null) }}
+              onDrop={e => {
+                e.preventDefault()
+                const from = Number(e.dataTransfer.getData('text/plain'))
+                if (!isNaN(from) && from !== idx) onReorder(from, idx)
+                setDragFrom(null); setDragOver(null)
+              }}
+              onDragEnd={() => { setDragFrom(null); setDragOver(null) }}
             >
-              <span className="qnav__item-num">{idx + 1}</span>
-              <span className="qnav__item-name">{item.label || item.name}</span>
-              <span className="qnav__item-dots">
-                {PENDING.map(s => counts[s.value] ? (
-                  <span
-                    key={s.value}
-                    className="qnav__dot"
-                    style={{ background: s.color, color: s.text }}
-                    title={`${s.label}: ${counts[s.value]}`}
-                  >
-                    {counts[s.value]}
-                  </span>
-                ) : null)}
-              </span>
-            </button>
+              <span
+                className="qnav__item-drag"
+                draggable
+                onDragStart={e => {
+                  e.dataTransfer.effectAllowed = 'move'
+                  e.dataTransfer.setData('text/plain', String(idx))
+                  setDragFrom(idx)
+                }}
+                title="Arrastrar para mover"
+              >⠿</span>
+              <button
+                className="qnav__item-btn"
+                onClick={() => scrollToItem(item.instanceId)}
+                title={`Ir a: ${item.label || item.name}`}
+              >
+                <span className="qnav__item-num">{idx + 1}</span>
+                <span className="qnav__item-name">{item.label || item.name}</span>
+              </button>
+              {hasPending && (
+                <span className="qnav__item-dots">
+                  {PENDING.map(s => counts[s.value] ? (
+                    <span
+                      key={s.value}
+                      className="qnav__dot"
+                      style={{ background: s.color, color: s.text }}
+                      title={`${s.label}: ${counts[s.value]}`}
+                    >
+                      {counts[s.value]}
+                    </span>
+                  ) : null)}
+                </span>
+              )}
+            </div>
           ))}
         </div>
       </div>

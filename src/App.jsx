@@ -333,6 +333,7 @@ export default function App() {
   const [canvas, setCanvas] = useState(() => draft?.canvas ?? [])
   const [fullscreen, setFullscreen] = useState(false)
   const [compact, setCompact] = useState(false)
+  const [miniZoom, setMiniZoom] = useState(0.35)
   const [previewAll, setPreviewAll] = useState(false)
   const [previewDragFrom, setPreviewDragFrom] = useState(null)
   const [previewDragOver, setPreviewDragOver] = useState(null)
@@ -680,7 +681,7 @@ export default function App() {
               </button>
             )}
             <button className="btn-ghost" onClick={() => setFullscreen(f => !f)}>
-              {fullscreen ? '✕ Cerrar' : '⛶ Pantalla completa'}
+              {fullscreen ? '✕ Cerrar' : '⊡ Vista mini'}
             </button>
           </header>
           <Canvas
@@ -688,6 +689,8 @@ export default function App() {
             fullscreen={fullscreen}
             compact={compact}
             onSetCompact={setCompact}
+            miniZoom={miniZoom}
+            onZoomChange={setMiniZoom}
             storeId={storeId}
             onRemove={removeFromCanvas}
             onDuplicate={duplicateCanvasItem}
@@ -702,7 +705,7 @@ export default function App() {
         </main>
       </div>
 
-      {!fullscreen && <CanvasQuickNav canvas={canvas} />}
+      {!fullscreen && <CanvasQuickNav canvas={canvas} onReorder={reorderCanvas} />}
 
       {previewAll && (
         <div className="preview-all-overlay" onMouseDown={e => e.target === e.currentTarget && setPreviewAll(false)}>

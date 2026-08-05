@@ -133,7 +133,11 @@ function RefImgModal({ item, storeId, onClose, onSave, onRemove }) {
   )
 }
 
-export default function Canvas({ items, fullscreen, compact, onSetCompact, storeId, onRemove, onDuplicate, onMove, onReorder, onUpdateLabel, onUpdateBarText, onUpdateDims, onUpdateNotes, onDropAdd }) {
+const ZOOM_MIN = 0.2
+const ZOOM_MAX = 1
+const ZOOM_STEP = 0.05
+
+export default function Canvas({ items, fullscreen, compact, onSetCompact, miniZoom = 0.35, onZoomChange, storeId, onRemove, onDuplicate, onMove, onReorder, onUpdateLabel, onUpdateBarText, onUpdateDims, onUpdateNotes, onDropAdd }) {
   const [editingId, setEditingId]         = useState(null)
   const [editValue, setEditValue]         = useState('')
   const [barEditingId, setBarEditingId]   = useState(null)
@@ -240,7 +244,10 @@ export default function Canvas({ items, fullscreen, compact, onSetCompact, store
         className={`canvas-scroll${fullscreen ? ' canvas-scroll--fullscreen' : ''}${paletteDragOver ? ' canvas-scroll--dragover' : ''}`}
         onDragOver={handlePaletteDragOver} onDragLeave={handlePaletteDragLeave} onDrop={handlePaletteDrop}
       >
-        <div className={`canvas-page${fullscreen ? ' canvas-page--fullscreen' : ''}${compact ? ' canvas-page--compact' : ''}`}>
+        <div
+          className={`canvas-page${fullscreen ? ' canvas-page--fullscreen' : ''}${compact ? ' canvas-page--compact' : ''}`}
+          style={fullscreen ? { '--mini-zoom': miniZoom } : undefined}
+        >
           {items.map((item, index) => {
             const isCollapsed = collapsedIds.has(item.instanceId)
             const collapsed = isCollapsed
@@ -253,13 +260,19 @@ export default function Canvas({ items, fullscreen, compact, onSetCompact, store
                 id={`ci-${item.instanceId}`}
                 className={`canvas-item${reorderOver === index ? ' canvas-item--drop-target' : ''}${reorderFrom === index ? ' canvas-item--dragging' : ''}${collapsed ? ' canvas-item--collapsed' : ''}${barEditingId === item.instanceId ? ' canvas-item--editing' : ''}`}
                 style={{ '--item-color': BORDER_COLORS[index % BORDER_COLORS.length] }}
-                draggable={!fullscreen}
-                onDragStart={!fullscreen ? (e) => handleItemDragStart(e, index) : undefined}
-                onDragOver={!fullscreen ? (e) => handleItemDragOver(e, index) : undefined}
-                onDragLeave={!fullscreen ? handleItemDragLeave : undefined}
-                onDrop={!fullscreen ? (e) => handleItemDrop(e, index) : undefined}
-                onDragEnd={!fullscreen ? handleItemDragEnd : undefined}
+                draggable
+                onDragStart={(e) => handleItemDragStart(e, index)}
+                onDragOver={(e) => handleItemDragOver(e, index)}
+                onDragLeave={handleItemDragLeave}
+                onDrop={(e) => handleItemDrop(e, index)}
+                onDragEnd={handleItemDragEnd}
               >
+                {fullscreen && (
+                  <div className="canvas-item__mini-badge" title="Arrastrar para reordenar">
+                    <span className="canvas-item__mini-num">{index + 1}</span>
+                    <span className="canvas-item__mini-drag">⠿ Mover</span>
+                  </div>
+                )}
                 {!fullscreen && (
                   <div className="canvas-item__bar">
                     <button
@@ -376,6 +389,24 @@ export default function Canvas({ items, fullscreen, compact, onSetCompact, store
         <RefImgModal item={refImgItem} storeId={storeId} onClose={() => setRefImgItem(null)}
           onSave={(img) => onUpdateDims(refImgItem.instanceId, { referenceImg: img })}
           onRemove={() => onUpdateDims(refImgItem.instanceId, { referenceImg: null })} />
+      )}
+
+      {fullscreen && (
+        <div className="mini-zoom-ctrl">
+          <button
+            className="mini-zoom-ctrl__btn"
+            onClick={() => onZoomChange(z => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
+            disabled={miniZoom <= ZOOM_MIN}
+            title="Achicar componentes"
+          >−</button>
+          <span className="mini-zoom-ctrl__value">{Math.round(miniZoom * 100)}%</span>
+          <button
+            className="mini-zoom-ctrl__btn"
+            onClick={() => onZoomChange(z => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))}
+            disabled={miniZoom >= ZOOM_MAX}
+            title="Agrandar componentes"
+          >+</button>
+        </div>
       )}
     </>
   )
