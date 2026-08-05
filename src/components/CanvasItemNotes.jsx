@@ -4,7 +4,7 @@ import SKUSearchModal from './SKUSearchModal'
 import { getCatalogBase, getStoreName } from '../stores'
 
 // ── PopoverInput ──────────────────────────────────
-function PopoverInput({ value, onChange, placeholder, className }) {
+function PopoverInput({ value, onChange, placeholder, className, spellCheck }) {
   const inputRef  = useRef(null)
   const popRef    = useRef(null)
   const [pos, setPos] = useState(null)
@@ -38,6 +38,7 @@ function PopoverInput({ value, onChange, placeholder, className }) {
         value={value}
         onChange={onChange}
         placeholder={placeholder}
+        spellCheck={spellCheck}
         onClick={open}
       />
       {pos && createPortal(
@@ -47,7 +48,7 @@ function PopoverInput({ value, onChange, placeholder, className }) {
             value={value}
             onChange={onChange}
             autoFocus
-            spellCheck={false}
+            spellCheck={spellCheck}
             rows={3}
           />
         </div>,
@@ -646,9 +647,8 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
                   </td>
                   <td className="canvas-notes__td cn-link-col">
                     <div className="cn-link-cell">
-                      <input
+                      <PopoverInput
                         className="canvas-notes__input cn-link-input"
-                        type="text"
                         value={row.linkPieza || ''}
                         onChange={e => updateItem(row.id, 'linkPieza', e.target.value)}
                         placeholder="Pegar link..."
