@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  collection, onSnapshot, deleteDoc, doc, updateDoc,
+  collection, onSnapshot, deleteDoc, doc, updateDoc, setDoc,
   addDoc, query, orderBy,
 } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -18,6 +18,11 @@ function formatEventDate(str) {
 
 function toDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function generateProjectCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
 }
 
 // ── New project modal ──────────────────────────────────
@@ -104,6 +109,65 @@ function NewProjectModal({ store, onConfirm, onClose }) {
   )
 }
 
+// ── Duplicate project modal ─────────────────────────────
+
+function DuplicateModal({ project, currentStore, onConfirm, onClose }) {
+  const [name,     setName]     = useState(`${project.name} (copia)`)
+  const [targetId, setTargetId] = useState(currentStore.id)
+  const [saving,   setSaving]   = useState(false)
+
+  const target = STORES.find(s => s.id === targetId)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!name.trim() || saving) return
+    setSaving(true)
+    await onConfirm({ name: name.trim(), targetStoreId: targetId })
+  }
+
+  return (
+    <div className="pl-modal-overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+      <div className="pl-modal">
+        <div className="pl-modal__head">
+          <div className="pl-modal__head-info">
+            <span className="pl-modal__store-dot" style={{ background: target?.color }} />
+            <h3 className="pl-modal__title">Duplicar proyecto</h3>
+          </div>
+          <button className="pl-modal__close" type="button" onClick={onClose}>✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="pl-modal__form">
+          <div className="pl-modal__field">
+            <label>Nombre del nuevo proyecto</label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              autoFocus
+            />
+          </div>
+
+          <div className="pl-modal__field">
+            <label>Tienda destino</label>
+            <select value={targetId} onChange={e => setTargetId(e.target.value)}>
+              {STORES.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="pl-modal__actions">
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+            <button type="submit" className="btn-primary" disabled={!name.trim() || saving}>
+              {saving ? 'Duplicando...' : 'Duplicar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ── Assign dropdown ────────────────────────────────────
 
 function AssignDropdown({ project, calEvents, onAssign, onClose }) {
@@ -159,6 +223,7 @@ export default function ProjectsList() {
   const [confirmDelete,  setConfirmDelete]  = useState(null)
   const [assigningId,    setAssigningId]    = useState(null)
   const [showNewModal,   setShowNewModal]   = useState(false)
+  const [duplicating,    setDuplicating]    = useState(null)
 
   useEffect(() => {
     if (!storeId) return
@@ -247,6 +312,23 @@ export default function ProjectsList() {
   const handleDelete = async (id) => {
     await deleteDoc(doc(db, 'stores', storeId, 'projects', id))
     setConfirmDelete(null)
+  }
+
+  const handleDuplicateConfirm = async ({ name, targetStoreId }) => {
+    const project = duplicating
+    const newId = crypto.randomUUID()
+    await setDoc(doc(db, 'stores', targetStoreId, 'projects', newId), {
+      id: newId,
+      name,
+      savedAt: Date.now(),
+      canvas: project.canvas,
+      palette: project.palette,
+      folderLink: project.folderLink ?? '',
+      eventId: null,
+      projectCode: generateProjectCode(),
+    })
+    setDuplicating(null)
+    navigate(`/store/${targetStoreId}/editor?p=${newId}`)
   }
 
   const handleAssignEvent = async (projectId, evId) => {
@@ -416,6 +498,13 @@ export default function ProjectsList() {
                       Abrir
                     </button>
 
+                    <button
+                      className="pl-item__duplicate"
+                      onClick={() => setDuplicating(p)}
+                      title="Duplicar proyecto"
+                      type="button"
+                    >⧉</button>
+
                     {confirmDelete === p.id ? (
                       <span className="pl-item__confirm">
                         <button className="pl-item__confirm-yes" onClick={() => handleDelete(p.id)}>Eliminar</button>
@@ -439,6 +528,15 @@ export default function ProjectsList() {
           store={store}
           onConfirm={handleConfirmNew}
           onClose={() => setShowNewModal(false)}
+        />
+      )}
+
+      {duplicating && (
+        <DuplicateModal
+          project={duplicating}
+          currentStore={store}
+          onConfirm={handleDuplicateConfirm}
+          onClose={() => setDuplicating(null)}
         />
       )}
     </div>

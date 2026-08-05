@@ -2370,6 +2370,24 @@
   padding: 6px 14px;
 }
 
+.pl-item__duplicate {
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  color: #94a3b8;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &:hover { background: #f0f6ff; color: #3b82f6; border-color: #93c5fd; }
+}
+
 .pl-item__delete {
   background: transparent;
   border: 1px solid #e2e8f0;
@@ -2785,6 +2803,25 @@
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
   background: #fff;
+}
+
+.pl-modal__field select {
+  font-size: 13px;
+  padding: 7px 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #1e293b;
+  outline: none;
+  font-family: var(--sans);
+  width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    background: #fff;
+  }
 }
 
 .pl-modal__row {
