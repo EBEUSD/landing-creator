@@ -1404,6 +1404,7 @@
 .cn-url    { width: 24%; }
 .cn-ids    { width: 13%; }
 .cn-skus   { width: 14%; }
+.cn-gwp    { width: 100px; min-width: 80px; }
 
 .canvas-notes__row {
   background: var(--row-bg, transparent);

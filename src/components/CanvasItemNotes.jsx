@@ -401,7 +401,7 @@ const STATUS_MAP = Object.fromEntries(STATUSES.map(s => [s.value, s]))
 const EMPTY_ITEM = () => ({
   id: crypto.randomUUID(),
   status: '', titulo: '', urlImagen: '', idProductos: '', idProductosMobile: '', skus: '',
-  imageDesktop: null, imageMobile: null, linkPieza: '',
+  imageDesktop: null, imageMobile: null, gwp: '', linkPieza: '',
 })
 
 export function normalizeNotes(notes) {
@@ -542,6 +542,7 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
               <th className="canvas-notes__th cn-skus">SKUs</th>
               <th className="canvas-notes__th cn-img-col">Img DK</th>
               <th className="canvas-notes__th cn-img-col">Img MB</th>
+              <th className="canvas-notes__th cn-gwp">GWP</th>
               <th className="canvas-notes__th cn-link-col">Link pieza</th>
               <th className="canvas-notes__th cn-del-col"></th>
             </tr>
@@ -638,6 +639,10 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
                       onUpload={file => handleUploadImg(row.id, 'mobile', file)}
                       onClear={() => updateItem(row.id, 'imageMobile', null)}
                     />
+                  </td>
+                  <td className="canvas-notes__td cn-gwp">
+                    <PopoverInput className="canvas-notes__input" value={row.gwp || ''}
+                      onChange={e => updateItem(row.id, 'gwp', e.target.value)} placeholder="—" />
                   </td>
                   <td className="canvas-notes__td cn-link-col">
                     <div className="cn-link-cell">
