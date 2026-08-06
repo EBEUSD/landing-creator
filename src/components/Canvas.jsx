@@ -335,7 +335,7 @@ export default function Canvas({ items, fullscreen, compact, onSetCompact, miniZ
                   <div className="canvas-item__preview-panel"
                     onMouseEnter={() => setPreviewOpenId(item.instanceId)}
                     onMouseLeave={() => setPreviewOpenId(null)}>
-                    <img src={item.referenceImg} alt="Referencia" />
+                    <img src={item.referenceImg} alt="Referencia" draggable={false} />
                   </div>
                 )}
 

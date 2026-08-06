@@ -500,7 +500,7 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
   }
 
   return (
-    <div className="canvas-notes">
+    <div className="canvas-notes" onDragStart={e => e.stopPropagation()}>
       {searchRowId && (
         <SKUSearchModal
           storeId={storeId}
