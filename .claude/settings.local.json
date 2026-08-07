@@ -56,7 +56,16 @@
       "Bash(npm install *)",
       "Bash(node -e \"const f = require\\('./index.js'\\); console.log\\(typeof f.vtex\\)\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"https://vtex-iemgegyuwq-uc.a.run.app?url=https://www.perfumeriasrouge.com/api/catalog_system/pub/products/search?_from=0\")",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(curl -s \"https://firestore.googleapis.com/v1/projects/landing-creator-469a5/databases/\\(default\\)/documents/stores/rouge/projects/6662d75b-c90b-46c6-a93e-c0de204da73c\")",
+      "Bash(firebase firestore:databases:list --project landing-creator-469a5)",
+      "Bash(firebase firestore:databases:get \"\\(default\\)\" --project landing-creator-469a5)",
+      "Bash(curl -s \"https://firestore.googleapis.com/v1/projects/landing-creator-469a5/databases/\\(default\\)/documents/stores/rouge/projects/6662d75b-c90b-46c6-a93e-c0de204da73c?readTime=2026-08-06T19:00:00Z\")",
+      "Bash(curl -s \"https://firestore.googleapis.com/v1/projects/landing-creator-469a5/databases/\\(default\\)/documents/stores/rouge/projects/6662d75b-c90b-46c6-a93e-c0de204da73c\" -o /tmp/proj.json)",
+      "Bash(curl -s 'https://firestore.googleapis.com/v1/projects/landing-creator-469a5/databases/\\(default\\)/documents/stores/rouge/projects/6662d75b-c90b-46c6-a93e-c0de204da73c' -o __TRACKED_VAR__/proj.json)",
+      "Bash(node -e ' *)",
+      "Read(//c/Users/EQUIPO~1.NBK/AppData/Local/Temp/claude/c--Users-Equipo-NBK-EGIMENEZ-Desktop-Repositorios-landing-creator/40049d00-defb-4d83-903e-7eb175fe86fe/scratchpad/**)",
+      "Bash(node parse.js)"
     ]
   }
 }

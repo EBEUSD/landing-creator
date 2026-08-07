@@ -5,7 +5,7 @@ import PlaceholderBlock from './PlaceholderBlock'
 import CanvasItemNotes from './CanvasItemNotes'
 import { normalizeNotes } from './CanvasItemNotes'
 
-function autoBarText(item) {
+export function autoBarText(item) {
   const parts = [item.label || item.name]
   if (item.variantName !== 'Completo') parts.push(`— ${item.variantName}`)
   parts.push(`/// ${item.width}x${item.height}`)
@@ -137,7 +137,7 @@ const ZOOM_MIN = 0.2
 const ZOOM_MAX = 1
 const ZOOM_STEP = 0.05
 
-export default function Canvas({ items, fullscreen, compact, onSetCompact, miniZoom = 0.35, onZoomChange, storeId, onRemove, onDuplicate, onMove, onReorder, onUpdateLabel, onUpdateBarText, onUpdateDims, onUpdateNotes, onDropAdd }) {
+export default function Canvas({ items, fullscreen, compact, onSetCompact, miniZoom = 0.35, onZoomChange, storeId, onRemove, onDuplicate, onMove, onUpdateLabel, onUpdateBarText, onUpdateDims, onUpdateNotes, onDropAdd }) {
   const [editingId, setEditingId]         = useState(null)
   const [editValue, setEditValue]         = useState('')
   const [barEditingId, setBarEditingId]   = useState(null)
@@ -153,8 +153,6 @@ export default function Canvas({ items, fullscreen, compact, onSetCompact, miniZ
   const [commentOpenIds, setCommentOpenIds] = useState(new Set())
 
   const [paletteDragOver, setPaletteDragOver] = useState(false)
-  const [reorderFrom, setReorderFrom] = useState(null)
-  const [reorderOver, setReorderOver] = useState(null)
 
   useEffect(() => {
     localStorage.setItem(`canvas-collapsed-${storeId}`, JSON.stringify([...collapsedIds]))
@@ -202,29 +200,6 @@ export default function Canvas({ items, fullscreen, compact, onSetCompact, miniZ
     try { const { category, variant } = JSON.parse(e.dataTransfer.getData('application/landing-creator')); onDropAdd(category, variant) } catch {}
   }
 
-  const handleItemDragStart = (e, index) => {
-    const active = document.activeElement
-    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
-      e.preventDefault()
-      return
-    }
-    e.stopPropagation(); e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('application/canvas-reorder', String(index)); setReorderFrom(index)
-  }
-  const handleItemDragOver = (e, index) => {
-    if (!e.dataTransfer.types.includes('application/canvas-reorder')) return
-    e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'
-    setReorderOver(index); setPaletteDragOver(false)
-  }
-  const handleItemDragLeave = (e) => { if (!e.currentTarget.contains(e.relatedTarget)) setReorderOver(null) }
-  const handleItemDrop = (e, index) => {
-    e.preventDefault(); e.stopPropagation()
-    const from = Number(e.dataTransfer.getData('application/canvas-reorder'))
-    if (!isNaN(from) && from !== index) onReorder(from, index)
-    setReorderFrom(null); setReorderOver(null)
-  }
-  const handleItemDragEnd = () => { setReorderFrom(null); setReorderOver(null) }
-
   if (items.length === 0) {
     return (
       <div className={`canvas-empty${paletteDragOver ? ' canvas-empty--dragover' : ''}`}
@@ -258,19 +233,24 @@ export default function Canvas({ items, fullscreen, compact, onSetCompact, miniZ
               <div
                 key={item.instanceId}
                 id={`ci-${item.instanceId}`}
-                className={`canvas-item${reorderOver === index ? ' canvas-item--drop-target' : ''}${reorderFrom === index ? ' canvas-item--dragging' : ''}${collapsed ? ' canvas-item--collapsed' : ''}${barEditingId === item.instanceId ? ' canvas-item--editing' : ''}`}
+                className={`canvas-item${collapsed ? ' canvas-item--collapsed' : ''}${barEditingId === item.instanceId ? ' canvas-item--editing' : ''}`}
                 style={{ '--item-color': BORDER_COLORS[index % BORDER_COLORS.length] }}
-                draggable
-                onDragStart={(e) => handleItemDragStart(e, index)}
-                onDragOver={(e) => handleItemDragOver(e, index)}
-                onDragLeave={handleItemDragLeave}
-                onDrop={(e) => handleItemDrop(e, index)}
-                onDragEnd={handleItemDragEnd}
               >
                 {fullscreen && (
-                  <div className="canvas-item__mini-badge" title="Arrastrar para reordenar">
+                  <div className="canvas-item__mini-badge">
                     <span className="canvas-item__mini-num">{index + 1}</span>
-                    <span className="canvas-item__mini-drag">⠿ Mover</span>
+                    <button
+                      className="canvas-item__mini-move"
+                      onClick={() => onMove(index, -1)}
+                      disabled={index === 0}
+                      title="Subir"
+                    >↑</button>
+                    <button
+                      className="canvas-item__mini-move"
+                      onClick={() => onMove(index, 1)}
+                      disabled={index === items.length - 1}
+                      title="Bajar"
+                    >↓</button>
                   </div>
                 )}
                 {!fullscreen && (
@@ -284,7 +264,6 @@ export default function Canvas({ items, fullscreen, compact, onSetCompact, miniZ
                     >
                       {isCollapsed || compact ? 'Mostrar componente' : 'Ocultar componente'}
                     </button>
-                    <span className="canvas-item__drag-handle" title="Arrastrar para reordenar">⠿</span>
 
                     <div className="canvas-item__name-wrap">
                       <span className="canvas-item__name" onClick={() => startBarEdit(item)}>

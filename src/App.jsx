@@ -312,6 +312,10 @@ function loadDraft(storeId) {
   }
 }
 
+function formatDeletedAt(ts) {
+  return new Date(ts).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
 function generateProjectCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
@@ -331,6 +335,8 @@ export default function App() {
     draft?.palette ? mergePaletteWithDefaults(draft.palette, defaultPalette) : defaultPalette
   )
   const [canvas, setCanvas] = useState(() => draft?.canvas ?? [])
+  const [deletedItems, setDeletedItems] = useState(() => draft?.deletedItems ?? [])
+  const [showHistory, setShowHistory] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
   const [compact, setCompact] = useState(false)
   const [miniZoom, setMiniZoom] = useState(0.35)
@@ -360,6 +366,7 @@ export default function App() {
         if (snap.exists()) {
           const p = snap.data()
           setCanvas(p.canvas || [])
+          setDeletedItems(p.deletedItems || [])
           setPalette(mergePaletteWithDefaults(p.palette || defaultPalette, defaultPalette))
           setProjectName(p.name || '')
           setCurrentProjectId(urlProjectId)
@@ -383,8 +390,8 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, palette, projectName, currentProjectId, folderLink, eventId, projectCode }))
-  }, [canvas, palette, projectName, currentProjectId, folderLink, eventId, projectCode, storeId])
+    localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, deletedItems, palette, projectName, currentProjectId, folderLink, eventId, projectCode }))
+  }, [canvas, deletedItems, palette, projectName, currentProjectId, folderLink, eventId, projectCode, storeId])
 
   // Auto-save a Firestore cuando el proyecto ya tiene ID y el usuario edita
   const autoSaveTimer = useRef(null)
@@ -400,6 +407,7 @@ export default function App() {
           name: projectName.trim() || 'Sin título',
           savedAt: Date.now(),
           canvas,
+          deletedItems,
           palette,
           folderLink,
           eventId: eventId ?? null,
@@ -410,7 +418,7 @@ export default function App() {
       } catch (_) {}
     }, 2500)
     return () => clearTimeout(autoSaveTimer.current)
-  }, [canvas, palette, projectName, folderLink, eventId, currentProjectId, loadingProject])
+  }, [canvas, deletedItems, palette, projectName, folderLink, eventId, currentProjectId, loadingProject])
 
   // ── Palette handlers ──────────────────────────────
   const selectVariant = (categoryId, variantId) =>
@@ -490,8 +498,19 @@ export default function App() {
       return next
     })
 
-  const removeFromCanvas = (instanceId) =>
+  const removeFromCanvas = (instanceId) => {
+    const item = canvas.find(i => i.instanceId === instanceId)
+    if (item) setDeletedItems(prev => [{ ...item, deletedAt: Date.now() }, ...prev].slice(0, 20))
     setCanvas(prev => prev.filter(i => i.instanceId !== instanceId))
+  }
+
+  const restoreDeletedItem = (instanceId) => {
+    const entry = deletedItems.find(i => i.instanceId === instanceId)
+    if (!entry) return
+    const { deletedAt, ...item } = entry
+    setCanvas(prev => [...prev, item])
+    setDeletedItems(prev => prev.filter(i => i.instanceId !== instanceId))
+  }
 
   const duplicateCanvasItem = (instanceId) => {
     const idx = canvas.findIndex(i => i.instanceId === instanceId)
@@ -523,7 +542,7 @@ export default function App() {
     loadedProjectIdRef.current = id
     const code = projectCode || generateProjectCode()
     if (!projectCode) setProjectCode(code)
-    const project = { id, name, savedAt: Date.now(), canvas, palette, folderLink, eventId: eventId ?? null, projectCode: code }
+    const project = { id, name, savedAt: Date.now(), canvas, deletedItems, palette, folderLink, eventId: eventId ?? null, projectCode: code }
     await setDoc(doc(db, 'stores', storeId, 'projects', id), project)
     setSearchParams({ p: id }, { replace: true })
     if (teams.length > 0) {
@@ -538,6 +557,7 @@ export default function App() {
     currentProjectIdRef.current = null
     loadedProjectIdRef.current = null
     setCanvas([])
+    setDeletedItems([])
     setPalette(defaultPalette)
     setCurrentProjectId(null)
     setProjectName('')
@@ -680,6 +700,11 @@ export default function App() {
                 {compact ? 'Mostrar componentes' : 'Ocultar componentes'}
               </button>
             )}
+            {!fullscreen && (
+              <button className="btn-ghost" onClick={() => setShowHistory(true)}>
+                ↺ Historial{deletedItems.length > 0 ? ` (${deletedItems.length})` : ''}
+              </button>
+            )}
             <button className="btn-ghost" onClick={() => setFullscreen(f => !f)}>
               {fullscreen ? '✕ Cerrar' : '⊡ Vista mini'}
             </button>
@@ -700,7 +725,6 @@ export default function App() {
             onUpdateDims={updateCanvasDims}
             onUpdateNotes={updateCanvasNotes}
             onDropAdd={addToCanvas}
-            onReorder={reorderCanvas}
           />
         </main>
       </div>
@@ -753,6 +777,34 @@ export default function App() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {showHistory && (
+        <div className="history-overlay" onMouseDown={e => e.target === e.currentTarget && setShowHistory(false)}>
+          <div className="history-panel">
+            <div className="history-panel__head">
+              <span className="history-panel__title">Historial de eliminados</span>
+              <button className="history-panel__close" onClick={() => setShowHistory(false)}>✕</button>
+            </div>
+            {deletedItems.length === 0 ? (
+              <div className="history-panel__empty">No eliminaste ningún componente todavía.</div>
+            ) : (
+              <ul className="history-panel__list">
+                {deletedItems.map(item => (
+                  <li key={item.instanceId} className="history-panel__item">
+                    <div className="history-panel__item-info">
+                      <span className="history-panel__item-name">{item.label || item.name}</span>
+                      <span className="history-panel__item-date">Eliminado el {formatDeletedAt(item.deletedAt)}</span>
+                    </div>
+                    <button className="btn-primary history-panel__restore" onClick={() => restoreDeletedItem(item.instanceId)}>
+                      ↺ Restaurar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       )}

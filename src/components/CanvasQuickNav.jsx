@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { normalizeNotes } from './CanvasItemNotes'
+import { autoBarText } from './Canvas'
 
 const PENDING = [
   { value: 'por-hacer',       label: 'Por hacer',         color: '#facc15', text: '#713f12' },
@@ -20,9 +21,7 @@ function scrollToItem(instanceId) {
 }
 
 export default function CanvasQuickNav({ canvas, onReorder }) {
-  const [open, setOpen]         = useState(false)
-  const [dragFrom, setDragFrom] = useState(null)
-  const [dragOver, setDragOver] = useState(null)
+  const [open, setOpen] = useState(false)
 
   const withCounts = canvas.map((item, idx) => {
     const rows = normalizeNotes(item.notes)
@@ -59,39 +58,29 @@ export default function CanvasQuickNav({ canvas, onReorder }) {
           {withCounts.map(({ item, idx, counts, hasPending }) => (
             <div
               key={item.instanceId}
-              className={`qnav__item${hasPending ? ' qnav__item--pending' : ''}${dragOver === idx && dragFrom !== idx ? ' qnav__item--drop' : ''}${dragFrom === idx ? ' qnav__item--dragging' : ''}`}
-              onDragOver={e => {
-                if (dragFrom === null) return
-                e.preventDefault()
-                e.dataTransfer.dropEffect = 'move'
-                if (dragOver !== idx) setDragOver(idx)
-              }}
-              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(null) }}
-              onDrop={e => {
-                e.preventDefault()
-                const from = Number(e.dataTransfer.getData('text/plain'))
-                if (!isNaN(from) && from !== idx) onReorder(from, idx)
-                setDragFrom(null); setDragOver(null)
-              }}
-              onDragEnd={() => { setDragFrom(null); setDragOver(null) }}
+              className={`qnav__item${hasPending ? ' qnav__item--pending' : ''}`}
             >
-              <span
-                className="qnav__item-drag"
-                draggable
-                onDragStart={e => {
-                  e.dataTransfer.effectAllowed = 'move'
-                  e.dataTransfer.setData('text/plain', String(idx))
-                  setDragFrom(idx)
-                }}
-                title="Arrastrar para mover"
-              >⠿</span>
+              <div className="qnav__item-move">
+                <button
+                  className="qnav__item-move-btn"
+                  onClick={() => onReorder(idx, idx - 1)}
+                  disabled={idx === 0}
+                  title="Subir"
+                >↑</button>
+                <button
+                  className="qnav__item-move-btn"
+                  onClick={() => onReorder(idx, idx + 1)}
+                  disabled={idx === canvas.length - 1}
+                  title="Bajar"
+                >↓</button>
+              </div>
               <button
                 className="qnav__item-btn"
                 onClick={() => scrollToItem(item.instanceId)}
-                title={`Ir a: ${item.label || item.name}`}
+                title={`Ir a: ${item.customBarText ?? autoBarText(item)}`}
               >
                 <span className="qnav__item-num">{idx + 1}</span>
-                <span className="qnav__item-name">{item.label || item.name}</span>
+                <span className="qnav__item-name">{item.customBarText ?? autoBarText(item)}</span>
               </button>
               {hasPending && (
                 <span className="qnav__item-dots">
