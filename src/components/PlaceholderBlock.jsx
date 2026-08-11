@@ -81,7 +81,7 @@ function LabelArea({
 
 export default function PlaceholderBlock({
   name, label, layout = 'full', cols = 1, width, height, widthMb, heightMb,
-  cardWidth, cardHeight, bannerSide = 'left', color = '#1a1a1a', textVariant = 'h1',
+  cardWidth, cardHeight, bannerSide = 'left', color = '#1a1a1a', textVariant = 'h1', image,
   isEditing, editValue, onEditChange, onEditCommit, onEditCancel, onEdit, onKeyDown,
   onDimsCommit, onCardDimsCommit,
 }) {
@@ -146,6 +146,19 @@ export default function PlaceholderBlock({
     onDimsCommit: commitDimsEdit,
     onDimsKeyDown: handleDimsKeyDown,
     onStartDimsEdit: onDimsCommit ? startDimsEdit : undefined,
+  }
+
+  if (image) {
+    return (
+      <div className="ph-image">
+        <img className="ph-image__img" src={image} alt={displayLabel} draggable={false} />
+        <div className="ph-image__overlay" />
+        <LabelArea
+          {...labelAreaProps}
+          dims={`${width}x${height}${mbLabel}`}
+        />
+      </div>
+    )
   }
 
   if (layout === 'text') {

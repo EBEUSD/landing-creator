@@ -346,7 +346,7 @@ export default function Canvas({ items, fullscreen, compact, onSetCompact, miniZ
                     name={item.name} label={item.label} layout={item.layout} cols={item.cols}
                     width={item.width} height={item.height} widthMb={item.widthMb} heightMb={item.heightMb}
                     cardWidth={item.cardWidth} cardHeight={item.cardHeight} bannerSide={item.bannerSide}
-                    color={item.color} textVariant={item.textVariant}
+                    color={item.color} textVariant={item.textVariant} image={item.exampleImage}
                     isEditing={!fullscreen && editingId === item.instanceId}
                     editValue={editValue} onEditChange={setEditValue}
                     onEditCommit={() => commitEdit(item.instanceId)}

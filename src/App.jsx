@@ -6,6 +6,8 @@ import Palette from './components/Palette'
 import Canvas from './components/Canvas'
 import CanvasQuickNav from './components/CanvasQuickNav'
 import { STORES, draftKey } from './stores'
+import { parseBulkPaletteText } from './utils/dims'
+import { ROUGE_IMAGES } from './assets/rougeImages'
 import './App.css'
 
 const TEAM_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
@@ -111,7 +113,7 @@ const DEFAULT_PALETTE = [
     selectedVariantId: 'completo',
     variants: [
       { id: 'completo', name: 'Completo', layout: 'full', cols: 1, width: 1920, height: 640, widthMb: 750, heightMb: 1000 },
-      { id: 'cards',    name: 'Cards',    layout: 'grid', cols: 5, width:1450, height: 1250 },
+      { id: 'cards',    name: 'Cards',    layout: 'grid', cols: 5, width: 700, height: 945 },
     ],
   },
   {
@@ -156,23 +158,19 @@ const DEFAULT_PALETTE = [
     id: 'banner-categorias',
     name: 'Banner Categorías',
     color: '#111111',
-    selectedVariantId: '4-col',
+    selectedVariantId: '4-col-vertical',
     variants: [
-      { id: '2-col',    name: '2 col',    layout: 'grid', cols: 2, width: 600, height: 800, widthMb: null, heightMb: null },
-      { id: '3-col',    name: '3 col',    layout: 'grid', cols: 3, width: 1000, height: 480, widthMb: 215, heightMb: 360 },
-      { id: '4-col',    name: '4 col',    layout: 'grid', cols: 4, width: 500, height: 660, widthMb: 215, heightMb: 360 },
-      { id: '5-slider', name: '5 Slider', layout: 'grid', cols: 5, width: 600, height: 800, widthMb: null, heightMb: null },
+      { id: '4-col-vertical',   name: '4 col vertical',   layout: 'grid', cols: 4, width: 500, height: 660, widthMb: 215, heightMb: 360 },
+      { id: '4-col-horizontal', name: '4 col horizontal', layout: 'grid', cols: 4, width: 1000, height: 480, widthMb: 400, heightMb: 600 },
     ],
   },
   {
     id: 'carrusel-productos',
     name: 'Carrusel Productos',
     color: '#111111',
-    selectedVariantId: '4-col',
+    selectedVariantId: 'completo',
     variants: [
-      { id: '3-col', name: '3 col', layout: 'grid', cols: 3, width: 400, height: 500 },
-      { id: '4-col', name: '4 col', layout: 'grid', cols: 4, width: 300, height: 480 },
-      { id: '5-col', name: '5 col', layout: 'grid', cols: 5, width: 240, height: 460 },
+      { id: 'completo', name: 'Completo', layout: 'grid', cols: 4, width: 300, height: 480 },
     ],
   },
   {
@@ -284,8 +282,87 @@ const DEFAULT_PALETTE_ML = [
   },
 ]
 
+// Reemplaza el bloque de color abstracto por una captura real del componente,
+// para poder reconocer cada banner de un vistazo en vez de cuadrados negros.
+const DEFAULT_PALETTE_ROUGE = DEFAULT_PALETTE.map(cat => {
+  if (cat.id === 'top-banner') {
+    return { ...cat, variants: [{ ...cat.variants[0], image: ROUGE_IMAGES.topBannerSwitch }] }
+  }
+  if (cat.id === 'banner-a') {
+    return {
+      ...cat,
+      variants: [
+        { ...cat.variants[0], image: ROUGE_IMAGES.bannerALargo },
+        { ...cat.variants[1], image: ROUGE_IMAGES.bannerAChicos },
+      ],
+    }
+  }
+  if (cat.id === 'banner-b') {
+    return {
+      ...cat,
+      variants: [
+        ...cat.variants.map(v => ({
+          ...v,
+          image: v.id === 'cards-der' ? ROUGE_IMAGES.bannerBIzq : ROUGE_IMAGES.bannerBDer,
+        })),
+        { ...cat.variants[0], id: 'video', name: 'Video', image: ROUGE_IMAGES.videoBannerB },
+      ],
+    }
+  }
+  if (cat.id === 'banner-c') {
+    return {
+      ...cat,
+      variants: cat.variants.map(v => ({
+        ...v,
+        image: v.id === 'cards-der' ? ROUGE_IMAGES.bannerCIzq : ROUGE_IMAGES.bannerCDer,
+      })),
+    }
+  }
+  if (cat.id === 'banner-marca') {
+    return { ...cat, variants: [{ ...cat.variants[0], image: ROUGE_IMAGES.bannerMarca }] }
+  }
+  if (cat.id === 'shop-the-look') {
+    return {
+      ...cat,
+      variants: [
+        { ...cat.variants[0], image: ROUGE_IMAGES.shopTheLook },
+        { ...cat.variants[0], id: 'video', name: 'Video', image: ROUGE_IMAGES.videoShopTheLook },
+      ],
+    }
+  }
+  if (cat.id === 'carrusel-productos') {
+    return { ...cat, variants: cat.variants.map(v => ({ ...v, image: ROUGE_IMAGES.carruselProductos })) }
+  }
+  if (cat.id === 'banner-categorias') {
+    return {
+      ...cat,
+      variants: cat.variants.map(v => ({
+        ...v,
+        image: v.id === '4-col-vertical' ? ROUGE_IMAGES.bannerAChicos : ROUGE_IMAGES.bannerX4Horizontal,
+      })),
+    }
+  }
+  return cat
+}).concat([
+  {
+    id: 'banner-x2',
+    name: 'Banner x2',
+    color: '#111111',
+    selectedVariantId: 'completo',
+    variants: [{ id: 'completo', name: 'Completo', layout: 'full', cols: 1, width: 600, height: 220, image: ROUGE_IMAGES.bannerX2 }],
+  },
+  {
+    id: 'banner-x3',
+    name: 'Banner x3',
+    color: '#111111',
+    selectedVariantId: 'completo',
+    variants: [{ id: 'completo', name: 'Completo', layout: 'full', cols: 1, width: 1000, height: 480, widthMb: 400, heightMb: 600, image: ROUGE_IMAGES.bannerX3 }],
+  },
+])
+
 function getDefaultPalette(storeId) {
   if (storeId === 'mercadolibre') return DEFAULT_PALETTE_ML
+  if (storeId === 'rouge') return DEFAULT_PALETTE_ROUGE
   return DEFAULT_PALETTE
 }
 
@@ -433,11 +510,6 @@ export default function App() {
         : cat
     ))
 
-  const updateCategory = (categoryId, changes) =>
-    setPalette(prev => prev.map(cat =>
-      cat.id === categoryId ? { ...cat, ...changes } : cat
-    ))
-
   const addPaletteCategory = (name, width, height) =>
     setPalette(prev => [...prev, {
       id: crypto.randomUUID(),
@@ -446,6 +518,77 @@ export default function App() {
       selectedVariantId: 'completo',
       variants: [{ id: 'completo', name: 'Completo', layout: 'full', cols: 1, width: Number(width), height: Number(height) }],
     }])
+
+  // Actualiza componentes existentes por nombre (case-insensitive) y agrega los que falten;
+  // nunca borra componentes que no aparezcan en el texto pegado.
+  const importPaletteFromText = (text) => {
+    const groups = parseBulkPaletteText(text)
+    if (!groups.length) return
+
+    setPalette(prev => {
+      const next = [...prev]
+
+      for (const group of groups) {
+        const catIdx = next.findIndex(c => c.name.trim().toLowerCase() === group.name.trim().toLowerCase())
+
+        if (catIdx === -1) {
+          const multi = group.variants.length > 1
+          const variants = group.variants.map((v, i) => ({
+            id: i === 0 ? 'completo' : crypto.randomUUID(),
+            name: multi ? v.name : 'Completo',
+            layout: 'full',
+            cols: 1,
+            width: v.width,
+            height: v.height,
+            widthMb: v.widthMb ?? null,
+            heightMb: v.heightMb ?? null,
+          }))
+          next.push({
+            id: crypto.randomUUID(),
+            name: group.name,
+            color: '#1a1a1a',
+            selectedVariantId: variants[0].id,
+            variants,
+          })
+          continue
+        }
+
+        const cat = next[catIdx]
+
+        // Caso simple: la categoría existente y el grupo importado tienen 1 sola variante cada uno.
+        // Actualizamos esa variante directamente, sin depender de que los nombres coincidan
+        // (ej: variantes "Completo" de las categorías por defecto).
+        if (cat.variants.length === 1 && group.variants.length === 1) {
+          const v = group.variants[0]
+          const variants = [{ ...cat.variants[0], width: v.width, height: v.height, widthMb: v.widthMb ?? null, heightMb: v.heightMb ?? null }]
+          next[catIdx] = { ...cat, variants }
+          continue
+        }
+
+        const variants = [...cat.variants]
+        for (const v of group.variants) {
+          const vIdx = variants.findIndex(existing => existing.name.trim().toLowerCase() === v.name.trim().toLowerCase())
+          if (vIdx === -1) {
+            variants.push({
+              id: crypto.randomUUID(),
+              name: v.name,
+              layout: 'full',
+              cols: 1,
+              width: v.width,
+              height: v.height,
+              widthMb: v.widthMb ?? null,
+              heightMb: v.heightMb ?? null,
+            })
+          } else {
+            variants[vIdx] = { ...variants[vIdx], width: v.width, height: v.height, widthMb: v.widthMb ?? null, heightMb: v.heightMb ?? null }
+          }
+        }
+        next[catIdx] = { ...cat, variants }
+      }
+
+      return next
+    })
+  }
 
   // ── Canvas handlers ───────────────────────────────
   const addToCanvas = (category, variant) =>
@@ -465,6 +608,7 @@ export default function App() {
       cardHeight: variant.cardHeight ?? null,
       bannerSide: variant.bannerSide ?? 'left',
       color: category.color,
+      exampleImage: variant.image ?? null,
       customBarText: null,
       comment: '',
       notes: [{ id: crypto.randomUUID(), status: '', titulo: '', urlImagen: '', idProductos: '', idProductosMobile: '', skus: '' }],
@@ -649,8 +793,8 @@ export default function App() {
               categories={palette}
               onSelectVariant={selectVariant}
               onUpdateVariant={updateVariant}
-              onUpdateCategory={updateCategory}
               onNewCategory={addPaletteCategory}
+              onImportPalette={importPaletteFromText}
               onAdd={addToCanvas}
             />
           </aside>

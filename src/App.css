@@ -480,6 +480,19 @@
   flex-shrink: 0;
 }
 
+.palette__toolbar {
+  padding: 10px 10px 0;
+  flex-shrink: 0;
+}
+
+.palette__import-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 /* ── Category card ───────────────────────────────── */
 .cat-card {
   border: 1px solid var(--cat-border, var(--border));
@@ -591,6 +604,24 @@
   text-overflow: ellipsis;
 }
 
+.cpreview--image {
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  align-items: flex-end;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.7) 100%);
+  }
+
+  .cpreview__text {
+    padding: 0 6px 4px;
+  }
+}
+
 /* ── Dimension inputs ────────────────────────────── */
 .cat-card__dims {
   padding: 6px 8px 5px;
@@ -661,6 +692,49 @@
   input {
     background: #f8f8f8;
   }
+}
+
+/* ── Chip de medidas editable ─────────────────────── */
+.dims-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 4px 8px;
+  cursor: text;
+  transition: border-color 0.12s;
+
+  &:hover {
+    border-color: var(--accent);
+  }
+}
+
+.dims-chip__value {
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--mono);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.dims-chip__edit {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.dims-chip__input {
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--mono);
+  padding: 4px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  min-width: 200px;
+  background: #fff;
+  color: var(--text);
 }
 
 /* ── Color swatches ──────────────────────────────── */
@@ -1210,6 +1284,100 @@
   margin-right: auto;
 
   &:hover { color: #fca5a5; }
+}
+
+/* ── Importar medidas en bloque ──────────────────── */
+.import-palette-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+}
+
+.import-palette-modal {
+  background: #1e1e1e;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  width: min(640px, 92vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.7);
+}
+
+.import-palette-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  background: #252525;
+}
+
+.import-palette-modal__title {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f0f0f0;
+}
+
+.import-palette-modal__sub {
+  display: block;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.import-palette-modal__close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  flex-shrink: 0;
+
+  &:hover { background: rgba(255,255,255,0.08); color: #fff; }
+}
+
+.import-palette-modal__textarea {
+  flex: 1;
+  min-height: 320px;
+  margin: 14px 18px;
+  padding: 12px 14px;
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #e5e5e5;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+
+  &:focus { border-color: var(--accent); }
+  &::placeholder { color: rgba(255, 255, 255, 0.25); }
+}
+
+.import-palette-modal__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #252525;
+  flex-shrink: 0;
 }
 
 /* ── Preview all refs modal ──────────────────────── */
@@ -1835,6 +2003,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.ph-image {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.ph-image__img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ph-image__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 65%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+.ph-image > .ph__label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 .ph-grid {

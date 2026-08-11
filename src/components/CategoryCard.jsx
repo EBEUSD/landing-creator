@@ -1,4 +1,5 @@
-const BLACK = '#0a0a0a'
+import { useState } from 'react'
+import { formatDims, parseDimsText } from '../utils/dims'
 
 const PASTELS = [
   { bg: '#fce7f3', border: '#f9a8d4' }, // rose
@@ -25,8 +26,19 @@ function DiagLines() {
   )
 }
 
-function CompactPreview({ layout, cols, name, width, height, widthMb, heightMb, color, cardWidth, cardHeight, bannerSide }) {
+function CompactPreview({ layout, cols, name, width, height, widthMb, heightMb, color, cardWidth, cardHeight, bannerSide, image }) {
   const mbLabel = widthMb ? ` - ${widthMb}x${heightMb}mb` : ''
+
+  if (image) {
+    return (
+      <div className="cpreview cpreview--image" style={{ backgroundImage: `url(${image})` }}>
+        <div className="cpreview__text">
+          <span className="cpreview__name">{name}///</span>
+          <span className="cpreview__dims">{width}x{height}{mbLabel}</span>
+        </div>
+      </div>
+    )
+  }
 
   if (layout === 'carousel') {
     const cw = cardWidth || 380
@@ -72,15 +84,58 @@ function CompactPreview({ layout, cols, name, width, height, widthMb, heightMb, 
   )
 }
 
-export default function CategoryCard({ category, index = 0, onSelectVariant, onUpdateVariant, onUpdateCategory, onAdd }) {
+function DimsChip({ variant, onCommit }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+
+  const start = () => {
+    setValue(formatDims(variant) || `${variant.width}x${variant.height}`)
+    setEditing(true)
+  }
+
+  const commit = () => {
+    const parsed = parseDimsText(value)
+    if (parsed && parsed.width && parsed.height) {
+      onCommit({
+        width: parsed.width,
+        height: parsed.height,
+        widthMb: parsed.widthMb,
+        heightMb: parsed.heightMb,
+      })
+    }
+    setEditing(false)
+  }
+
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter') commit()
+    if (e.key === 'Escape') setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <input
+        className="dims-chip__input"
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={onKeyDown}
+        placeholder="1920x640dk / 750x1000mb"
+        autoFocus
+      />
+    )
+  }
+
+  return (
+    <button type="button" className="dims-chip" onClick={start} title="Editar medidas">
+      <span className="dims-chip__value">{formatDims(variant) || `${variant.width}x${variant.height}`}</span>
+      <span className="dims-chip__edit">✎</span>
+    </button>
+  )
+}
+
+export default function CategoryCard({ category, index = 0, onSelectVariant, onUpdateVariant, onAdd }) {
   const pastel = PASTELS[index % PASTELS.length]
   const variant = category.variants.find(v => v.id === category.selectedVariantId)
-
-  const setVariantField = (field, value) =>
-    onUpdateVariant(category.id, variant.id, { [field]: Math.max(1, Number(value)) })
-
-  const setMobileField = (field, raw) =>
-    onUpdateVariant(category.id, variant.id, { [field]: raw === '' ? null : Math.max(1, Number(raw)) })
 
   const handleDragStart = (e) => {
     e.dataTransfer.effectAllowed = 'copy'
@@ -123,31 +178,18 @@ export default function CategoryCard({ category, index = 0, onSelectVariant, onU
         cardWidth={variant.cardWidth}
         cardHeight={variant.cardHeight}
         bannerSide={variant.bannerSide}
+        image={variant.image}
       />
 
       <div className="cat-card__dims">
 
         <div className="dim-section">
-          <span className="dim-section__label">Desktop</span>
+          <span className="dim-section__label">Medidas</span>
           <div className="dim-section__inputs">
-            <label className="dim-label">
-              W
-              <input
-                type="number"
-                value={variant.width}
-                min="1"
-                onChange={e => setVariantField('width', e.target.value)}
-              />
-            </label>
-            <label className="dim-label">
-              H
-              <input
-                type="number"
-                value={variant.height}
-                min="1"
-                onChange={e => setVariantField('height', e.target.value)}
-              />
-            </label>
+            <DimsChip
+              variant={variant}
+              onCommit={changes => onUpdateVariant(category.id, variant.id, changes)}
+            />
             {variant.layout === 'grid' && (
               <label className="dim-label">
                 Col
@@ -162,34 +204,6 @@ export default function CategoryCard({ category, index = 0, onSelectVariant, onU
             )}
           </div>
         </div>
-
-        {'widthMb' in variant && (
-          <div className="dim-section dim-section--alt">
-            <span className="dim-section__label">Mobile</span>
-            <div className="dim-section__inputs">
-              <label className="dim-label">
-                W
-                <input
-                  type="number"
-                  value={variant.widthMb ?? ''}
-                  min="1"
-                  placeholder="—"
-                  onChange={e => setMobileField('widthMb', e.target.value)}
-                />
-              </label>
-              <label className="dim-label">
-                H
-                <input
-                  type="number"
-                  value={variant.heightMb ?? ''}
-                  min="1"
-                  placeholder="—"
-                  onChange={e => setMobileField('heightMb', e.target.value)}
-                />
-              </label>
-            </div>
-          </div>
-        )}
 
         {variant.layout === 'carousel' && (
           <div className="dim-section dim-section--alt">
@@ -226,24 +240,6 @@ export default function CategoryCard({ category, index = 0, onSelectVariant, onU
             </div>
           </div>
         )}
-
-        <div className="dim-colors">
-          <button
-            className={`color-swatch${category.color === BLACK ? ' is-active' : ''}`}
-            style={{ backgroundColor: BLACK }}
-            onClick={() => onUpdateCategory(category.id, { color: BLACK })}
-            title="Negro"
-          />
-          <label className="color-picker-btn" title="Color personalizado">
-            <span className="color-picker-btn__dot" style={{ backgroundColor: category.color }} />
-            <span className="color-picker-btn__text">Personalizado</span>
-            <input
-              type="color"
-              value={category.color}
-              onChange={e => onUpdateCategory(category.id, { color: e.target.value })}
-            />
-          </label>
-        </div>
 
       </div>
 

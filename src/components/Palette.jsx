@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import CategoryCard from './CategoryCard'
+import ImportPaletteModal from './ImportPaletteModal'
+import { serializePaletteToText } from '../utils/dims'
 
-export default function Palette({ categories, onSelectVariant, onUpdateVariant, onUpdateCategory, onNewCategory, onAdd }) {
+export default function Palette({ categories, onSelectVariant, onUpdateVariant, onNewCategory, onAdd, onImportPalette }) {
   const [showForm, setShowForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [name, setName] = useState('')
   const [w, setW] = useState(1920)
   const [h, setH] = useState(400)
@@ -23,6 +26,12 @@ export default function Palette({ categories, onSelectVariant, onUpdateVariant, 
 
   return (
     <div className="palette">
+      <div className="palette__toolbar">
+        <button className="btn-outline palette__import-btn" onClick={() => setShowImport(true)}>
+          ✎ Pegar medidas
+        </button>
+      </div>
+
       <div className="palette__list">
         {categories.map((cat, i) => (
           <CategoryCard
@@ -31,7 +40,6 @@ export default function Palette({ categories, onSelectVariant, onUpdateVariant, 
             index={i}
             onSelectVariant={onSelectVariant}
             onUpdateVariant={onUpdateVariant}
-            onUpdateCategory={onUpdateCategory}
             onAdd={onAdd}
           />
         ))}
@@ -60,6 +68,14 @@ export default function Palette({ categories, onSelectVariant, onUpdateVariant, 
           <button className="btn-new" onClick={() => setShowForm(true)}>+ Nuevo componente</button>
         )}
       </div>
+
+      {showImport && (
+        <ImportPaletteModal
+          initialText={serializePaletteToText(categories)}
+          onClose={() => setShowImport(false)}
+          onGenerate={onImportPalette}
+        />
+      )}
     </div>
   )
 }
