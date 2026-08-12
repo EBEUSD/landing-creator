@@ -135,7 +135,7 @@ function DimsChip({ variant, onCommit }) {
 
 export default function CategoryCard({ category, index = 0, onSelectVariant, onUpdateVariant, onAdd }) {
   const pastel = PASTELS[index % PASTELS.length]
-  const variant = category.variants.find(v => v.id === category.selectedVariantId)
+  const variant = category.variants.find(v => v.id === category.selectedVariantId) || category.variants[0]
 
   const handleDragStart = (e) => {
     e.dataTransfer.effectAllowed = 'copy'

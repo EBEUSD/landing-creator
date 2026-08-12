@@ -372,10 +372,13 @@ function mergePaletteWithDefaults(loaded, defaultPalette) {
   return defaultPalette.map(def => {
     const cat = loaded.find(c => c.id === def.id)
     if (!cat) return def
+    const selectedVariantId = def.variants.some(v => v.id === cat.selectedVariantId)
+      ? cat.selectedVariantId
+      : def.selectedVariantId
     return {
       ...def,
       color: cat.color ?? def.color,
-      selectedVariantId: cat.selectedVariantId ?? def.selectedVariantId,
+      selectedVariantId,
     }
   })
 }
