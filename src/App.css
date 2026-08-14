@@ -134,6 +134,14 @@
   white-space: nowrap;
 }
 
+.app-nav__save-error {
+  font-size: 11px;
+  color: #ef4444;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: help;
+}
+
 .app-nav__save-hint {
   display: flex;
   align-items: center;

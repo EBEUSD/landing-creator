@@ -432,6 +432,8 @@ export default function App() {
   const [projectCode, setProjectCode] = useState(() => draft?.projectCode ?? null)
   const [loadingProject, setLoadingProject] = useState(!!urlProjectId)
   const [savedFlash, setSavedFlash] = useState(false)
+  const [saveError, setSaveError] = useState(false)
+  const hasPendingSaveRef = useRef(false)
   const [teams, setTeams] = useState([])
   const [showNotifyModal, setShowNotifyModal] = useState(false)
 
@@ -477,6 +479,7 @@ export default function App() {
   const autoSaveTimer = useRef(null)
   useEffect(() => {
     if (!currentProjectId || loadingProject) return
+    hasPendingSaveRef.current = true
     clearTimeout(autoSaveTimer.current)
     autoSaveTimer.current = setTimeout(async () => {
       const id = currentProjectIdRef.current
@@ -493,12 +496,29 @@ export default function App() {
           eventId: eventId ?? null,
           projectCode: projectCode ?? null,
         })
+        hasPendingSaveRef.current = false
+        setSaveError(false)
         setSavedFlash(true)
         setTimeout(() => setSavedFlash(false), 2000)
-      } catch (_) {}
-    }, 2500)
+      } catch (err) {
+        console.error('Auto-save falló:', err)
+        setSaveError(true)
+      }
+    }, 800)
     return () => clearTimeout(autoSaveTimer.current)
   }, [canvas, deletedItems, palette, projectName, folderLink, eventId, currentProjectId, loadingProject])
+
+  // Avisa antes de cerrar/recargar si hay cambios que todavía no se guardaron en Firestore
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (!hasPendingSaveRef.current) return
+      e.preventDefault()
+      e.returnValue = ''
+      return ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
 
   // ── Palette handlers ──────────────────────────────
   const selectVariant = (categoryId, variantId) =>
@@ -763,6 +783,11 @@ export default function App() {
               spellCheck={false}
             />
             {savedFlash && <span className="app-nav__saved">✓ Guardado</span>}
+            {saveError && (
+              <span className="app-nav__save-error" title="No se pudo guardar el último cambio. Revisá tu conexión.">
+                ⚠ Error al guardar
+              </span>
+            )}
           </div>
 
           <div className="app-nav__actions">
