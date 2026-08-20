@@ -4,7 +4,7 @@ import { autoBarText } from './Canvas'
 
 const PENDING = [
   { value: 'por-hacer',       label: 'Por hacer',         color: '#facc15', text: '#713f12' },
-  { value: 'falta-completar', label: 'Falta · Dudas',     color: '#a855f7', text: '#fff'    },
+  { value: 'programado',      label: 'Programado',        color: '#3b82f6', text: '#fff'    },
   { value: 'listo-no-subido', label: 'Listo · No subido', color: '#f97316', text: '#fff'    },
   { value: 'eliminar',        label: 'Eliminar',          color: '#ef4444', text: '#fff'    },
 ]

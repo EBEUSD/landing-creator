@@ -392,7 +392,7 @@ function ImgCell({ url, uploading, onUpload, onClear }) {
 const STATUSES = [
   { value: '',               label: '—',                   bg: 'transparent', color: '#9ca3af', rowBg: 'transparent' },
   { value: 'por-hacer',      label: 'POR HACER',           bg: '#facc15',     color: '#713f12', rowBg: 'rgba(250,204,21,0.22)' },
-  { value: 'falta-completar',label: 'FALTA · DUDAS',       bg: '#a855f7',     color: '#ffffff', rowBg: 'rgba(168,85,247,0.18)' },
+  { value: 'programado',     label: 'PROGRAMADO',          bg: '#3b82f6',     color: '#ffffff', rowBg: 'rgba(59,130,246,0.18)' },
   { value: 'listo-no-subido',label: 'LISTO · NO SUBIDO',   bg: '#f97316',     color: '#ffffff', rowBg: 'rgba(249,115,22,0.18)' },
   { value: 'terminado',      label: 'TERMINADO Y CARGADO', bg: '#22c55e',     color: '#ffffff', rowBg: 'rgba(34,197,94,0.18)' },
   { value: 'eliminar',       label: 'ELIMINAR',            bg: '#ef4444',     color: '#ffffff', rowBg: 'rgba(239,68,68,0.18)' },
@@ -402,7 +402,7 @@ const STATUS_MAP = Object.fromEntries(STATUSES.map(s => [s.value, s]))
 const EMPTY_ITEM = () => ({
   id: crypto.randomUUID(),
   status: '', titulo: '', urlImagen: '', idProductos: '', idProductosMobile: '', skus: '',
-  imageDesktop: null, imageMobile: null, gwp: '', linkPieza: '',
+  imageDesktop: null, imageMobile: null, gwp: '', linkPieza: '', desde: '', hasta: '',
 })
 
 export function normalizeNotes(notes) {
@@ -584,6 +584,22 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
                         <option key={s.value} value={s.value}>{s.label}</option>
                       ))}
                     </select>
+                    {row.status === 'programado' && (
+                      <div className="cn-schedule-range">
+                        <input
+                          className="canvas-notes__input cn-schedule-input"
+                          value={row.desde || ''}
+                          onChange={e => updateItem(row.id, 'desde', e.target.value)}
+                          placeholder="Desde"
+                        />
+                        <input
+                          className="canvas-notes__input cn-schedule-input"
+                          value={row.hasta || ''}
+                          onChange={e => updateItem(row.id, 'hasta', e.target.value)}
+                          placeholder="Hasta"
+                        />
+                      </div>
+                    )}
                   </td>
                   <td className="canvas-notes__td">
                     <PopoverInput className="canvas-notes__input" value={row.titulo}

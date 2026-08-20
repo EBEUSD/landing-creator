@@ -475,50 +475,76 @@ export default function App() {
     localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, deletedItems, palette, projectName, currentProjectId, folderLink, eventId, projectCode }))
   }, [canvas, deletedItems, palette, projectName, currentProjectId, folderLink, eventId, projectCode, storeId])
 
-  // Auto-save a Firestore cuando el proyecto ya tiene ID y el usuario edita
+  // Auto-save a Firestore cuando el proyecto ya tiene ID y el usuario edita.
+  // pendingSaveRef siempre tiene el payload más reciente, para poder forzar
+  // el guardado desde un listener global (visibilitychange/beforeunload) sin
+  // depender de un closure con estado viejo.
   const autoSaveTimer = useRef(null)
+  const pendingSaveRef = useRef(null)
+
+  const flushSave = useRef(async () => {
+    if (!pendingSaveRef.current) return
+    const id = currentProjectIdRef.current
+    if (!id) { pendingSaveRef.current = null; return }
+    const payload = pendingSaveRef.current
+    pendingSaveRef.current = null
+    clearTimeout(autoSaveTimer.current)
+    try {
+      await setDoc(doc(db, 'stores', storeId, 'projects', id), payload)
+      hasPendingSaveRef.current = false
+      setSaveError(false)
+      setSavedFlash(true)
+      setTimeout(() => setSavedFlash(false), 2000)
+    } catch (err) {
+      console.error('Auto-save falló:', err)
+      setSaveError(true)
+    }
+  }).current
+
   useEffect(() => {
     if (!currentProjectId || loadingProject) return
+    pendingSaveRef.current = {
+      id: currentProjectIdRef.current,
+      name: projectName.trim() || 'Sin título',
+      savedAt: Date.now(),
+      canvas,
+      deletedItems,
+      palette,
+      folderLink,
+      eventId: eventId ?? null,
+      projectCode: projectCode ?? null,
+    }
     hasPendingSaveRef.current = true
     clearTimeout(autoSaveTimer.current)
-    autoSaveTimer.current = setTimeout(async () => {
-      const id = currentProjectIdRef.current
-      if (!id) return
-      try {
-        await setDoc(doc(db, 'stores', storeId, 'projects', id), {
-          id,
-          name: projectName.trim() || 'Sin título',
-          savedAt: Date.now(),
-          canvas,
-          deletedItems,
-          palette,
-          folderLink,
-          eventId: eventId ?? null,
-          projectCode: projectCode ?? null,
-        })
-        hasPendingSaveRef.current = false
-        setSaveError(false)
-        setSavedFlash(true)
-        setTimeout(() => setSavedFlash(false), 2000)
-      } catch (err) {
-        console.error('Auto-save falló:', err)
-        setSaveError(true)
-      }
-    }, 800)
+    autoSaveTimer.current = setTimeout(flushSave, 800)
     return () => clearTimeout(autoSaveTimer.current)
   }, [canvas, deletedItems, palette, projectName, folderLink, eventId, currentProjectId, loadingProject])
 
-  // Avisa antes de cerrar/recargar si hay cambios que todavía no se guardaron en Firestore
+  // Si la pestaña se oculta (F5, cerrar, cambiar de pestaña) antes de que el
+  // debounce dispare, forzamos el guardado ya mismo en vez de esperar.
+  // El beforeunload queda como aviso adicional por si el guardado no llega a tiempo.
   useEffect(() => {
+    const handleHide = () => {
+      if (document.visibilityState !== 'hidden') return
+      if (hasPendingSaveRef.current) flushSave()
+    }
+    const handlePageHide = () => { if (hasPendingSaveRef.current) flushSave() }
     const handleBeforeUnload = (e) => {
       if (!hasPendingSaveRef.current) return
+      flushSave()
       e.preventDefault()
       e.returnValue = ''
       return ''
     }
+    document.addEventListener('visibilitychange', handleHide)
+    window.addEventListener('pagehide', handlePageHide)
     window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [])
+    return () => {
+      document.removeEventListener('visibilitychange', handleHide)
+      window.removeEventListener('pagehide', handlePageHide)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [flushSave])
 
   // ── Palette handlers ──────────────────────────────
   const selectVariant = (categoryId, variantId) =>

@@ -40,12 +40,12 @@ const BORDER_COLORS = [
   '#3b82f6', '#e11d48', '#a3e635', '#fb923c', '#a78bfa',
 ]
 
-const STATUS_ORDER = ['eliminar', 'por-hacer', 'falta-completar', 'listo-no-subido']
+const STATUS_ORDER = ['eliminar', 'por-hacer', 'programado', 'listo-no-subido']
 const STATUS_CHIP = {
-  'eliminar':        { label: 'Eliminar',  bg: '#ef4444', text: '#fff' },
-  'por-hacer':       { label: 'Por hacer', bg: '#facc15', text: '#713f12' },
-  'falta-completar': { label: 'Falta',     bg: '#a855f7', text: '#fff' },
-  'listo-no-subido': { label: 'No subido', bg: '#f97316', text: '#fff' },
+  'eliminar':        { label: 'Eliminar',    bg: '#ef4444', text: '#fff' },
+  'por-hacer':       { label: 'Por hacer',   bg: '#facc15', text: '#713f12' },
+  'programado':      { label: 'Programado',  bg: '#3b82f6', text: '#fff' },
+  'listo-no-subido': { label: 'No subido',   bg: '#f97316', text: '#fff' },
 }
 
 function getDominantStatus(notes) {
