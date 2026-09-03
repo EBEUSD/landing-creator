@@ -9,7 +9,6 @@ export function autoBarText(item) {
   const parts = [item.label || item.name]
   if (item.variantName !== 'Completo') parts.push(`— ${item.variantName}`)
   parts.push(`/// ${item.width}x${item.height}`)
-  if (item.layout === 'carousel' && item.cardWidth) parts.push(`+ ${item.cardWidth}x${item.cardHeight} ×${item.cols}`)
   if (item.widthMb) parts.push(`- ${item.widthMb}x${item.heightMb}mb`)
   return parts.join(' ')
 }
