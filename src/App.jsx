@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { doc, setDoc, getDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore'
+import { doc, setDoc, getDoc, collection, query, orderBy, onSnapshot, runTransaction } from 'firebase/firestore'
 import { db } from './firebase'
 import Palette from './components/Palette'
 import Canvas from './components/Canvas'
@@ -433,7 +433,9 @@ export default function App() {
   const [loadingProject, setLoadingProject] = useState(!!urlProjectId)
   const [savedFlash, setSavedFlash] = useState(false)
   const [saveError, setSaveError] = useState(false)
+  const [saveConflict, setSaveConflict] = useState(false)
   const hasPendingSaveRef = useRef(false)
+  const lastKnownSavedAtRef = useRef(null)
   const [teams, setTeams] = useState([])
   const [showNotifyModal, setShowNotifyModal] = useState(false)
 
@@ -456,6 +458,7 @@ export default function App() {
           setFolderLink(p.folderLink || '')
           setEventId(p.eventId || null)
           setProjectCode(p.projectCode || null)
+          lastKnownSavedAtRef.current = p.savedAt ?? null
         }
         setLoadingProject(false)
       })
@@ -487,17 +490,35 @@ export default function App() {
     const id = currentProjectIdRef.current
     if (!id) { pendingSaveRef.current = null; return }
     const payload = pendingSaveRef.current
+    const knownSavedAt = lastKnownSavedAtRef.current
     pendingSaveRef.current = null
     clearTimeout(autoSaveTimer.current)
+    const ref = doc(db, 'stores', storeId, 'projects', id)
     try {
-      await setDoc(doc(db, 'stores', storeId, 'projects', id), payload)
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref)
+        const serverSavedAt = snap.exists() ? snap.data().savedAt : null
+        // Si el servidor tiene un guardado más nuevo que el último que vimos,
+        // otra pestaña/persona editó este proyecto: no lo pisamos.
+        if (serverSavedAt && knownSavedAt && serverSavedAt > knownSavedAt) {
+          throw new Error('SAVE_CONFLICT')
+        }
+        tx.set(ref, payload)
+      })
+      lastKnownSavedAtRef.current = payload.savedAt
       hasPendingSaveRef.current = false
       setSaveError(false)
+      setSaveConflict(false)
       setSavedFlash(true)
       setTimeout(() => setSavedFlash(false), 2000)
     } catch (err) {
-      console.error('Auto-save falló:', err)
-      setSaveError(true)
+      if (err.message === 'SAVE_CONFLICT') {
+        hasPendingSaveRef.current = false
+        setSaveConflict(true)
+      } else {
+        console.error('Auto-save falló:', err)
+        setSaveError(true)
+      }
     }
   }).current
 
@@ -737,6 +758,8 @@ export default function App() {
     if (!projectCode) setProjectCode(code)
     const project = { id, name, savedAt: Date.now(), canvas, deletedItems, palette, folderLink, eventId: eventId ?? null, projectCode: code }
     await setDoc(doc(db, 'stores', storeId, 'projects', id), project)
+    lastKnownSavedAtRef.current = project.savedAt
+    setSaveConflict(false)
     setSearchParams({ p: id }, { replace: true })
     if (teams.length > 0) {
       setShowNotifyModal(true)
@@ -812,6 +835,12 @@ export default function App() {
             {saveError && (
               <span className="app-nav__save-error" title="No se pudo guardar el último cambio. Revisá tu conexión.">
                 ⚠ Error al guardar
+              </span>
+            )}
+            {saveConflict && (
+              <span className="app-nav__save-conflict" title="Otra pestaña o persona guardó cambios más nuevos. Tu último cambio no se guardó para no pisarlo.">
+                ⚠ Alguien más editó este proyecto —
+                <button className="app-nav__save-conflict-btn" onClick={() => window.location.reload()}>recargar</button>
               </span>
             )}
           </div>
