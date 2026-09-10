@@ -4,6 +4,7 @@ import { storage } from '../firebase'
 import PlaceholderBlock from './PlaceholderBlock'
 import CanvasItemNotes from './CanvasItemNotes'
 import { normalizeNotes } from './CanvasItemNotes'
+import ExportComponentModal from './ExportComponentModal'
 
 export function autoBarText(item) {
   const parts = [item.label || item.name]
@@ -142,6 +143,7 @@ export default function Canvas({ items, fullscreen, compact, onSetCompact, miniZ
   const [barEditingId, setBarEditingId]   = useState(null)
   const [barEditValue, setBarEditValue]   = useState('')
   const [refImgItem, setRefImgItem]       = useState(null)
+  const [exportItem, setExportItem]       = useState(null)
   const [previewOpenId, setPreviewOpenId] = useState(null)
   const [collapsedIds, setCollapsedIds]   = useState(() => {
     try {
@@ -303,6 +305,7 @@ export default function Canvas({ items, fullscreen, compact, onSetCompact, miniZ
                       <button className="canvas-item__btn" onClick={() => onMove(index, -1)} disabled={index === 0} title="Subir">↑</button>
                       <button className="canvas-item__btn" onClick={() => onMove(index, 1)} disabled={index === items.length - 1} title="Bajar">↓</button>
                       <button className="canvas-item__btn" onClick={() => onDuplicate(item.instanceId)} title="Duplicar">⎘</button>
+                      <button className="canvas-item__btn canvas-item__btn--preview" onClick={() => setExportItem(item)} title="Exportar a otro proyecto">⇪ Exportar</button>
                       <button className="canvas-item__btn canvas-item__btn--danger"
                         onClick={() => { if (window.confirm('¿Eliminar este componente del canvas?')) onRemove(item.instanceId) }} title="Eliminar">×</button>
                     </div>
@@ -367,6 +370,10 @@ export default function Canvas({ items, fullscreen, compact, onSetCompact, miniZ
         <RefImgModal item={refImgItem} storeId={storeId} onClose={() => setRefImgItem(null)}
           onSave={(img) => onUpdateDims(refImgItem.instanceId, { referenceImg: img })}
           onRemove={() => onUpdateDims(refImgItem.instanceId, { referenceImg: null })} />
+      )}
+
+      {exportItem && (
+        <ExportComponentModal item={exportItem} currentStoreId={storeId} onClose={() => setExportItem(null)} />
       )}
 
       {fullscreen && (
