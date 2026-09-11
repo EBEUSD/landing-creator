@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { doc, setDoc, getDoc, collection, query, orderBy, onSnapshot, runTransaction } from 'firebase/firestore'
+import { doc, setDoc, getDoc, getDocs, deleteDoc, collection, query, orderBy, onSnapshot, runTransaction } from 'firebase/firestore'
 import { db } from './firebase'
 import Palette from './components/Palette'
 import Canvas from './components/Canvas'
@@ -8,6 +8,7 @@ import CanvasQuickNav from './components/CanvasQuickNav'
 import { STORES, draftKey } from './stores'
 import { parseBulkPaletteText } from './utils/dims'
 import { ROUGE_IMAGES } from './assets/rougeImages'
+import { buildChangeLog } from './utils/historyDiff'
 import './App.css'
 
 const TEAM_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
@@ -401,6 +402,22 @@ function generateProjectCode() {
   return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
 }
 
+const MAX_HISTORY_VERSIONS = 200
+
+// Best-effort: borra las versiones más viejas si nos pasamos del límite.
+// Nunca debe romper el guardado principal si falla.
+async function pruneHistoryVersions(storeId, projectId) {
+  try {
+    const historyCol = collection(db, 'stores', storeId, 'projects', projectId, 'history')
+    const snap = await getDocs(query(historyCol, orderBy('savedAt', 'asc')))
+    const excess = snap.docs.length - MAX_HISTORY_VERSIONS
+    if (excess <= 0) return
+    await Promise.all(snap.docs.slice(0, excess).map(d => deleteDoc(d.ref)))
+  } catch (err) {
+    console.error('No se pudo limpiar el historial de versiones:', err)
+  }
+}
+
 export default function App() {
   const { storeId } = useParams()
   const navigate = useNavigate()
@@ -417,6 +434,9 @@ export default function App() {
   const [canvas, setCanvas] = useState(() => draft?.canvas ?? [])
   const [deletedItems, setDeletedItems] = useState(() => draft?.deletedItems ?? [])
   const [showHistory, setShowHistory] = useState(false)
+  const [historyTab, setHistoryTab] = useState('eliminados')
+  const [versions, setVersions] = useState([])
+  const [loadingVersions, setLoadingVersions] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
   const [compact, setCompact] = useState(false)
   const [miniZoom, setMiniZoom] = useState(0.35)
@@ -478,6 +498,26 @@ export default function App() {
     localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, deletedItems, palette, projectName, currentProjectId, folderLink, eventId, projectCode }))
   }, [canvas, deletedItems, palette, projectName, currentProjectId, folderLink, eventId, projectCode, storeId])
 
+  useEffect(() => {
+    if (!showHistory || (historyTab !== 'versiones' && historyTab !== 'registro') || !currentProjectId) return
+    let cancelled = false
+    setLoadingVersions(true)
+    const q = query(
+      collection(db, 'stores', storeId, 'projects', currentProjectId, 'history'),
+      orderBy('savedAt', 'desc')
+    )
+    getDocs(q)
+      .then(snap => {
+        if (cancelled) return
+        setVersions(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+        setLoadingVersions(false)
+      })
+      .catch(() => { if (!cancelled) setLoadingVersions(false) })
+    return () => { cancelled = true }
+  }, [showHistory, historyTab, currentProjectId, storeId])
+
+  const changeLog = useMemo(() => buildChangeLog(versions), [versions])
+
   // Auto-save a Firestore cuando el proyecto ya tiene ID y el usuario edita.
   // pendingSaveRef siempre tiene el payload más reciente, para poder forzar
   // el guardado desde un listener global (visibilitychange/beforeunload) sin
@@ -494,6 +534,7 @@ export default function App() {
     pendingSaveRef.current = null
     clearTimeout(autoSaveTimer.current)
     const ref = doc(db, 'stores', storeId, 'projects', id)
+    const historyRef = doc(collection(db, 'stores', storeId, 'projects', id, 'history'))
     try {
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(ref)
@@ -504,7 +545,9 @@ export default function App() {
           throw new Error('SAVE_CONFLICT')
         }
         tx.set(ref, payload)
+        tx.set(historyRef, { savedAt: payload.savedAt, canvas: payload.canvas })
       })
+      pruneHistoryVersions(storeId, id)
       lastKnownSavedAtRef.current = payload.savedAt
       hasPendingSaveRef.current = false
       setSaveError(false)
@@ -726,6 +769,31 @@ export default function App() {
     setDeletedItems(prev => prev.filter(i => i.instanceId !== instanceId))
   }
 
+  const restoreVersion = (version) => {
+    if (!window.confirm(`¿Reemplazar el canvas actual por la versión de ${formatDeletedAt(version.savedAt)}? Podés volver a elegir otra versión después si hace falta.`)) return
+    setCanvas(version.canvas || [])
+    setShowHistory(false)
+  }
+
+  const [clearingHistory, setClearingHistory] = useState(false)
+
+  const handleClearVersionHistory = async () => {
+    if (!currentProjectId || versions.length === 0) return
+    if (!window.confirm(`Se van a borrar las ${versions.length} versiones guardadas de este proyecto (no afecta a los componentes actuales). No se puede deshacer. ¿Continuar?`)) return
+    setClearingHistory(true)
+    try {
+      const historyCol = collection(db, 'stores', storeId, 'projects', currentProjectId, 'history')
+      const snap = await getDocs(historyCol)
+      await Promise.all(snap.docs.map(d => deleteDoc(d.ref)))
+      setVersions([])
+    } catch (err) {
+      console.error('No se pudo limpiar el historial de versiones:', err)
+      alert('No se pudo limpiar el historial. Probá de nuevo.')
+    } finally {
+      setClearingHistory(false)
+    }
+  }
+
   const duplicateCanvasItem = (instanceId) => {
     const idx = canvas.findIndex(i => i.instanceId === instanceId)
     if (idx === -1) return
@@ -757,15 +825,39 @@ export default function App() {
     const code = projectCode || generateProjectCode()
     if (!projectCode) setProjectCode(code)
     const project = { id, name, savedAt: Date.now(), canvas, deletedItems, palette, folderLink, eventId: eventId ?? null, projectCode: code }
-    await setDoc(doc(db, 'stores', storeId, 'projects', id), project)
-    lastKnownSavedAtRef.current = project.savedAt
-    setSaveConflict(false)
-    setSearchParams({ p: id }, { replace: true })
-    if (teams.length > 0) {
-      setShowNotifyModal(true)
-    } else {
-      setSavedFlash(true)
-      setTimeout(() => setSavedFlash(false), 2000)
+    const ref = doc(db, 'stores', storeId, 'projects', id)
+    const historyRef = doc(collection(db, 'stores', storeId, 'projects', id, 'history'))
+    const knownSavedAt = lastKnownSavedAtRef.current
+
+    try {
+      // Igual que el autoguardado: si el servidor tiene un guardado más nuevo
+      // que el último que vimos (otra pestaña, otra persona), no lo pisamos.
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref)
+        const serverSavedAt = snap.exists() ? snap.data().savedAt : null
+        if (serverSavedAt && knownSavedAt && serverSavedAt > knownSavedAt) {
+          throw new Error('SAVE_CONFLICT')
+        }
+        tx.set(ref, project)
+        tx.set(historyRef, { savedAt: project.savedAt, canvas: project.canvas })
+      })
+      pruneHistoryVersions(storeId, id)
+      lastKnownSavedAtRef.current = project.savedAt
+      setSaveConflict(false)
+      setSearchParams({ p: id }, { replace: true })
+      if (teams.length > 0) {
+        setShowNotifyModal(true)
+      } else {
+        setSavedFlash(true)
+        setTimeout(() => setSavedFlash(false), 2000)
+      }
+    } catch (err) {
+      if (err.message === 'SAVE_CONFLICT') {
+        setSaveConflict(true)
+      } else {
+        console.error('Guardado manual falló:', err)
+        setSaveError(true)
+      }
     }
   }
 
@@ -1012,25 +1104,130 @@ export default function App() {
         <div className="history-overlay" onMouseDown={e => e.target === e.currentTarget && setShowHistory(false)}>
           <div className="history-panel">
             <div className="history-panel__head">
-              <span className="history-panel__title">Historial de eliminados</span>
+              <span className="history-panel__title">Historial</span>
               <button className="history-panel__close" onClick={() => setShowHistory(false)}>✕</button>
             </div>
-            {deletedItems.length === 0 ? (
-              <div className="history-panel__empty">No eliminaste ningún componente todavía.</div>
-            ) : (
-              <ul className="history-panel__list">
-                {deletedItems.map(item => (
-                  <li key={item.instanceId} className="history-panel__item">
-                    <div className="history-panel__item-info">
-                      <span className="history-panel__item-name">{item.label || item.name}</span>
-                      <span className="history-panel__item-date">Eliminado el {formatDeletedAt(item.deletedAt)}</span>
-                    </div>
-                    <button className="btn-primary history-panel__restore" onClick={() => restoreDeletedItem(item.instanceId)}>
-                      ↺ Restaurar
-                    </button>
-                  </li>
-                ))}
-              </ul>
+
+            <div className="history-panel__tabs">
+              <div className="history-panel__tabs-group">
+                <button
+                  className={`history-panel__tab${historyTab === 'eliminados' ? ' history-panel__tab--active' : ''}`}
+                  onClick={() => setHistoryTab('eliminados')}
+                >
+                  Eliminados{deletedItems.length > 0 ? ` (${deletedItems.length})` : ''}
+                </button>
+                <button
+                  className={`history-panel__tab${historyTab === 'versiones' ? ' history-panel__tab--active' : ''}`}
+                  onClick={() => setHistoryTab('versiones')}
+                >
+                  Versiones anteriores
+                </button>
+                <button
+                  className={`history-panel__tab${historyTab === 'registro' ? ' history-panel__tab--active' : ''}`}
+                  onClick={() => setHistoryTab('registro')}
+                >
+                  Registro de cambios
+                </button>
+              </div>
+              {(historyTab === 'versiones' || historyTab === 'registro') && currentProjectId && versions.length > 0 && (
+                <button
+                  type="button"
+                  className="history-panel__clear"
+                  onClick={handleClearVersionHistory}
+                  disabled={clearingHistory}
+                  title="Borrar todas las versiones guardadas de este proyecto (no afecta los componentes actuales)"
+                >
+                  {clearingHistory ? 'Borrando...' : '🗑 Limpiar registro'}
+                </button>
+              )}
+            </div>
+
+            {historyTab === 'eliminados' && (
+              deletedItems.length === 0 ? (
+                <div className="history-panel__empty">No eliminaste ningún componente todavía.</div>
+              ) : (
+                <ul className="history-panel__list">
+                  {deletedItems.map(item => (
+                    <li key={item.instanceId} className="history-panel__item">
+                      <div className="history-panel__item-info">
+                        <span className="history-panel__item-name">{item.label || item.name}</span>
+                        <span className="history-panel__item-date">Eliminado el {formatDeletedAt(item.deletedAt)}</span>
+                      </div>
+                      <button className="btn-primary history-panel__restore" onClick={() => restoreDeletedItem(item.instanceId)}>
+                        ↺ Restaurar
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )
+            )}
+
+            {historyTab === 'versiones' && (
+              !currentProjectId ? (
+                <div className="history-panel__empty">Guardá el proyecto al menos una vez para empezar a ver versiones anteriores.</div>
+              ) : loadingVersions ? (
+                <div className="history-panel__empty">Cargando versiones...</div>
+              ) : versions.length === 0 ? (
+                <div className="history-panel__empty">Todavía no hay versiones guardadas de este proyecto.</div>
+              ) : (
+                <ul className="history-panel__list">
+                  {versions.map(version => (
+                    <li key={version.id} className="history-panel__item">
+                      <div className="history-panel__item-info">
+                        <span className="history-panel__item-name">{formatDeletedAt(version.savedAt)}</span>
+                        <span className="history-panel__item-date">
+                          {(version.canvas || []).length} componente{(version.canvas || []).length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <button className="btn-primary history-panel__restore" onClick={() => restoreVersion(version)}>
+                        ↺ Restaurar
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )
+            )}
+
+            {historyTab === 'registro' && (
+              !currentProjectId ? (
+                <div className="history-panel__empty">Guardá el proyecto al menos una vez para empezar a ver el registro de cambios.</div>
+              ) : loadingVersions ? (
+                <div className="history-panel__empty">Cargando registro...</div>
+              ) : changeLog.length === 0 ? (
+                <div className="history-panel__empty">Todavía no hay cambios registrados.</div>
+              ) : (
+                <ul className="changelog-list">
+                  {changeLog.map((entry, i) => (
+                    <li key={i} className="changelog-entry">
+                      <div className="changelog-entry__date">{formatDeletedAt(entry.savedAt)}</div>
+                      <ul className="changelog-entry__changes">
+                        {entry.changes.map((c, j) => (
+                          <li key={j} className="changelog-change">
+                            {c.type === 'created' && (
+                              <>Primera versión registrada — {c.count} componente{c.count !== 1 ? 's' : ''}</>
+                            )}
+                            {c.type === 'added' && (
+                              <><strong>{c.component}</strong> — componente agregado</>
+                            )}
+                            {c.type === 'removed' && (
+                              <><strong>{c.component}</strong> — componente quitado</>
+                            )}
+                            {c.type === 'row-added' && (
+                              <><strong>{c.component}</strong> — fila {c.row} agregada</>
+                            )}
+                            {c.type === 'field' && (
+                              <>
+                                <strong>{c.component}</strong>
+                                {c.row ? ` — fila ${c.row}` : ''} — {c.field}: <span className="changelog-change__from">{c.from}</span> → <span className="changelog-change__to">{c.to}</span>
+                              </>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              )
             )}
           </div>
         </div>
