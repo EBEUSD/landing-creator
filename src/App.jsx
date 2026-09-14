@@ -8,7 +8,7 @@ import CanvasQuickNav from './components/CanvasQuickNav'
 import { STORES, draftKey } from './stores'
 import { parseBulkPaletteText } from './utils/dims'
 import { ROUGE_IMAGES } from './assets/rougeImages'
-import { buildChangeLog } from './utils/historyDiff'
+import { buildChangeLog, diffCanvasVersions } from './utils/historyDiff'
 import './App.css'
 
 const TEAM_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
@@ -114,7 +114,7 @@ const DEFAULT_PALETTE = [
     selectedVariantId: 'completo',
     variants: [
       { id: 'completo', name: 'Completo', layout: 'full', cols: 1, width: 1920, height: 640, widthMb: 750, heightMb: 1000 },
-      { id: 'cards',    name: 'Cards',    layout: 'grid', cols: 5, width: 700, height: 945 },
+      { id: 'cards',    name: 'Cards',    layout: 'grid', cols: 5, width: 1450, height: 1250 },
     ],
   },
   {
@@ -294,7 +294,8 @@ const DEFAULT_PALETTE_ROUGE = DEFAULT_PALETTE.map(cat => {
       ...cat,
       variants: [
         { ...cat.variants[0], image: ROUGE_IMAGES.bannerALargo },
-        { ...cat.variants[1], image: ROUGE_IMAGES.bannerAChicos },
+        // Medida de "Cards" propia de Rouge (700x945) — Beauty24/Maison mantienen 1450x1250.
+        { ...cat.variants[1], width: 700, height: 945, image: ROUGE_IMAGES.bannerAChicos },
       ],
     }
   }
@@ -437,6 +438,7 @@ export default function App() {
   const [historyTab, setHistoryTab] = useState('eliminados')
   const [versions, setVersions] = useState([])
   const [loadingVersions, setLoadingVersions] = useState(false)
+  const [previewVersion, setPreviewVersion] = useState(null)
   const [fullscreen, setFullscreen] = useState(false)
   const [compact, setCompact] = useState(false)
   const [miniZoom, setMiniZoom] = useState(0.35)
@@ -517,6 +519,11 @@ export default function App() {
   }, [showHistory, historyTab, currentProjectId, storeId])
 
   const changeLog = useMemo(() => buildChangeLog(versions), [versions])
+
+  const restorePreviewChanges = useMemo(
+    () => previewVersion ? diffCanvasVersions(canvas, previewVersion.canvas) : [],
+    [previewVersion, canvas]
+  )
 
   // Auto-save a Firestore cuando el proyecto ya tiene ID y el usuario edita.
   // pendingSaveRef siempre tiene el payload más reciente, para poder forzar
@@ -769,9 +776,10 @@ export default function App() {
     setDeletedItems(prev => prev.filter(i => i.instanceId !== instanceId))
   }
 
-  const restoreVersion = (version) => {
-    if (!window.confirm(`¿Reemplazar el canvas actual por la versión de ${formatDeletedAt(version.savedAt)}? Podés volver a elegir otra versión después si hace falta.`)) return
-    setCanvas(version.canvas || [])
+  const confirmRestoreVersion = () => {
+    if (!previewVersion) return
+    setCanvas(previewVersion.canvas || [])
+    setPreviewVersion(null)
     setShowHistory(false)
   }
 
@@ -1179,7 +1187,7 @@ export default function App() {
                           {(version.canvas || []).length} componente{(version.canvas || []).length !== 1 ? 's' : ''}
                         </span>
                       </div>
-                      <button className="btn-primary history-panel__restore" onClick={() => restoreVersion(version)}>
+                      <button className="btn-primary history-panel__restore" onClick={() => setPreviewVersion(version)}>
                         ↺ Restaurar
                       </button>
                     </li>
@@ -1229,6 +1237,54 @@ export default function App() {
                 </ul>
               )
             )}
+          </div>
+        </div>
+      )}
+
+      {previewVersion && (
+        <div className="history-overlay" onMouseDown={e => e.target === e.currentTarget && setPreviewVersion(null)}>
+          <div className="history-panel restore-preview-panel">
+            <div className="history-panel__head">
+              <span className="history-panel__title">Restaurar versión del {formatDeletedAt(previewVersion.savedAt)}</span>
+              <button className="history-panel__close" onClick={() => setPreviewVersion(null)}>✕</button>
+            </div>
+
+            {restorePreviewChanges.length === 0 ? (
+              <div className="history-panel__empty">Esta versión es idéntica al estado actual — no hay nada para restaurar.</div>
+            ) : (
+              <>
+                <div className="restore-preview__hint">
+                  Esto es lo que va a cambiar si restaurás esta versión (antes → después):
+                </div>
+                <ul className="changelog-list restore-preview__list">
+                  <li className="changelog-entry">
+                    <ul className="changelog-entry__changes">
+                      {restorePreviewChanges.map((c, j) => (
+                        <li key={j} className="changelog-change">
+                          {c.type === 'created' && <>Primera versión registrada — {c.count} componente{c.count !== 1 ? 's' : ''}</>}
+                          {c.type === 'added' && <><strong>{c.component}</strong> — se va a agregar de nuevo (existía en esa versión)</>}
+                          {c.type === 'removed' && <><strong>{c.component}</strong> — se va a quitar (no existe en esa versión)</>}
+                          {c.type === 'row-added' && <><strong>{c.component}</strong> — fila {c.row} se va a agregar</>}
+                          {c.type === 'field' && (
+                            <>
+                              <strong>{c.component}</strong>
+                              {c.row ? ` — fila ${c.row}` : ''} — {c.field}: <span className="changelog-change__from">{c.from}</span> → <span className="changelog-change__to">{c.to}</span>
+                            </>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                </ul>
+              </>
+            )}
+
+            <div className="restore-preview__actions">
+              <button className="btn-ghost" onClick={() => setPreviewVersion(null)}>Cancelar</button>
+              <button className="btn-primary" onClick={confirmRestoreVersion} disabled={restorePreviewChanges.length === 0}>
+                ↺ Confirmar restauración
+              </button>
+            </div>
           </div>
         </div>
       )}

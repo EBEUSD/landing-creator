@@ -1719,6 +1719,33 @@
   font-weight: 600;
 }
 
+/* ── Vista previa de restaurar versión ───────────────── */
+.restore-preview-panel {
+  width: min(600px, 92vw);
+  max-height: min(650px, 85vh);
+}
+
+.restore-preview__hint {
+  padding: 10px 18px;
+  font-size: 12px;
+  color: #64748b;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.restore-preview__list {
+  flex: 1;
+}
+
+.restore-preview__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
 .preview-all__item-name {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.7);
