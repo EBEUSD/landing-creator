@@ -749,10 +749,16 @@ export default function App() {
       item.instanceId === instanceId ? { ...item, ...changes } : item
     ))
 
-  const updateCanvasNotes = (instanceId, notes) =>
-    setCanvas(prev => prev.map(item =>
-      item.instanceId === instanceId ? { ...item, notes } : item
-    ))
+  // Acepta un array de notas nuevo, o una función (notesActuales => notesNuevas).
+  // La función se resuelve DENTRO del setCanvas funcional, sobre el estado más
+  // fresco posible — evita que una operación async (ej. subir una imagen) pise
+  // ediciones más nuevas hechas mientras esa operación estaba en curso.
+  const updateCanvasNotes = (instanceId, notesOrUpdater) =>
+    setCanvas(prev => prev.map(item => {
+      if (item.instanceId !== instanceId) return item
+      const notes = typeof notesOrUpdater === 'function' ? notesOrUpdater(item.notes) : notesOrUpdater
+      return { ...item, notes }
+    }))
 
   const reorderCanvas = (from, to) =>
     setCanvas(prev => {

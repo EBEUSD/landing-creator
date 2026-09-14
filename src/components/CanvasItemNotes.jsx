@@ -436,25 +436,37 @@ export default function CanvasItemNotes({ instanceId, notes, onUpdate, storeId }
   const handleDrop = (e, targetId) => {
     e.preventDefault()
     if (!dragRowId || dragRowId === targetId) return
-    const from = rows.findIndex(r => r.id === dragRowId)
-    const to   = rows.findIndex(r => r.id === targetId)
-    const next = [...rows]
-    next.splice(to, 0, next.splice(from, 1)[0])
-    onUpdate(next)
+    const draggedId = dragRowId
+    onUpdate(prevNotes => {
+      const cur = normalizeNotes(prevNotes)
+      const from = cur.findIndex(r => r.id === draggedId)
+      const to = cur.findIndex(r => r.id === targetId)
+      if (from === -1 || to === -1) return cur
+      const next = [...cur]
+      next.splice(to, 0, next.splice(from, 1)[0])
+      return next
+    })
     setDragRowId(null)
     setDragOverId(null)
   }
   const handleDragEnd = () => { setDragRowId(null); setDragOverId(null) }
 
+  // Usa la forma funcional de onUpdate (notes actuales => notes nuevas) en vez de
+  // "rows" (un closure de cuando se llamó esta función). Esto importa sobre todo
+  // para operaciones async como subir una imagen: si mientras tanto se edita otro
+  // campo, un closure viejo pisaría esa edición al resolver más tarde.
   const updateItem = (id, field, value) =>
-    onUpdate(rows.map(r => r.id === id ? { ...r, [field]: value } : r))
+    onUpdate(prevNotes => normalizeNotes(prevNotes).map(r => r.id === id ? { ...r, [field]: value } : r))
 
-  const addItem = () => onUpdate([...rows, EMPTY_ITEM()])
+  const addItem = () => onUpdate(prevNotes => [...normalizeNotes(prevNotes), EMPTY_ITEM()])
 
   const removeItem = (id) => {
     if (rows.length <= 1) return
     if (!window.confirm('¿Eliminar esta fila?')) return
-    onUpdate(rows.filter(r => r.id !== id))
+    onUpdate(prevNotes => {
+      const cur = normalizeNotes(prevNotes)
+      return cur.length <= 1 ? cur : cur.filter(r => r.id !== id)
+    })
   }
 
   const handleAddSkus = (rowId, itemIds) => {
