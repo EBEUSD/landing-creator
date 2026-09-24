@@ -20,3 +20,8 @@ export function storageKey(storeId) {
 export function draftKey(storeId) {
   return `landing-creator-draft-${storeId}`
 }
+
+// Backup local por proyecto (no se pisa entre proyectos, a diferencia del draft).
+export function backupKey(storeId, projectId) {
+  return `landing-creator-backup-${storeId}-${projectId}`
+}

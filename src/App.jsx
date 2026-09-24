@@ -5,7 +5,7 @@ import { db } from './firebase'
 import Palette from './components/Palette'
 import Canvas from './components/Canvas'
 import CanvasQuickNav from './components/CanvasQuickNav'
-import { STORES, draftKey } from './stores'
+import { STORES, draftKey, backupKey } from './stores'
 import { parseBulkPaletteText } from './utils/dims'
 import { ROUGE_IMAGES } from './assets/rougeImages'
 import { buildChangeLog, diffCanvasVersions } from './utils/historyDiff'
@@ -394,6 +394,45 @@ function loadDraft(storeId) {
   }
 }
 
+function loadLocalBackup(storeId, projectId) {
+  try {
+    const data = localStorage.getItem(backupKey(storeId, projectId))
+    return data ? JSON.parse(data) : null
+  } catch {
+    return null
+  }
+}
+
+const MERGE_ROW_FIELDS = ['status', 'titulo', 'urlImagen', 'idProductos', 'idProductosMobile', 'skus', 'gwp', 'linkPieza', 'imageDesktop', 'imageMobile', 'desde', 'hasta']
+
+// Combina el canvas del servidor (más al día, puede tener cambios de otra
+// persona/pestaña) con un backup local: nunca pisa un valor que ya esté en el
+// servidor, solo completa los huecos con lo que haya en el backup local y
+// agrega filas/componentes que existan solo del lado local.
+function mergeCanvasKeepingServerData(serverCanvas, localCanvas) {
+  const localById = new Map(localCanvas.map(item => [item.instanceId, item]))
+  const merged = serverCanvas.map(serverItem => {
+    const localItem = localById.get(serverItem.instanceId)
+    if (!localItem) return serverItem
+    const localRowsById = new Map((localItem.notes || []).map(r => [r.id, r]))
+    const mergedNotes = (serverItem.notes || []).map(serverRow => {
+      const localRow = localRowsById.get(serverRow.id)
+      if (!localRow) return serverRow
+      const next = { ...serverRow }
+      for (const field of MERGE_ROW_FIELDS) {
+        if (!next[field] && localRow[field]) next[field] = localRow[field]
+      }
+      return next
+    })
+    const serverRowIds = new Set((serverItem.notes || []).map(r => r.id))
+    const localOnlyRows = (localItem.notes || []).filter(r => !serverRowIds.has(r.id))
+    return { ...serverItem, notes: [...mergedNotes, ...localOnlyRows] }
+  })
+  const serverIds = new Set(serverCanvas.map(i => i.instanceId))
+  const localOnlyItems = localCanvas.filter(i => !serverIds.has(i.instanceId))
+  return [...merged, ...localOnlyItems]
+}
+
 function formatDeletedAt(ts) {
   return new Date(ts).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
@@ -458,6 +497,7 @@ export default function App() {
   const [saveConflict, setSaveConflict] = useState(false)
   const hasPendingSaveRef = useRef(false)
   const lastKnownSavedAtRef = useRef(null)
+  const [localBackupPrompt, setLocalBackupPrompt] = useState(null)
   const [teams, setTeams] = useState([])
   const [showNotifyModal, setShowNotifyModal] = useState(false)
 
@@ -467,6 +507,7 @@ export default function App() {
     if (!urlProjectId || urlProjectId === loadedProjectIdRef.current) return
     loadedProjectIdRef.current = urlProjectId
     setLoadingProject(true)
+    setLocalBackupPrompt(null)
     getDoc(doc(db, 'stores', storeId, 'projects', urlProjectId))
       .then(snap => {
         if (snap.exists()) {
@@ -481,6 +522,16 @@ export default function App() {
           setEventId(p.eventId || null)
           setProjectCode(p.projectCode || null)
           lastKnownSavedAtRef.current = p.savedAt ?? null
+
+          // Si en esta PC hay un backup local de este proyecto más nuevo que lo
+          // último guardado en el servidor y con contenido distinto, puede ser
+          // que un guardado se haya perdido (falla de red, cierre de pestaña,
+          // conflicto, etc). Se lo ofrecemos al usuario en vez de pisarlo solo.
+          const backup = loadLocalBackup(storeId, urlProjectId)
+          if (backup && backup.savedAt > (p.savedAt ?? 0) &&
+              JSON.stringify(backup.canvas) !== JSON.stringify(p.canvas || [])) {
+            setLocalBackupPrompt(backup)
+          }
         }
         setLoadingProject(false)
       })
@@ -499,6 +550,28 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, deletedItems, palette, projectName, currentProjectId, folderLink, eventId, projectCode }))
   }, [canvas, deletedItems, palette, projectName, currentProjectId, folderLink, eventId, projectCode, storeId])
+
+  // Backup local por proyecto: se guarda en la PC del usuario en cada cambio,
+  // independiente del autoguardado a Firestore. Sirve como red de contención
+  // si un guardado se pierde por corte de red, conflicto o cierre de pestaña.
+  useEffect(() => {
+    if (!currentProjectId || loadingProject) return
+    try {
+      localStorage.setItem(backupKey(storeId, currentProjectId), JSON.stringify({
+        savedAt: Date.now(), canvas, deletedItems, palette, projectName, folderLink, eventId, projectCode,
+      }))
+    } catch (err) {
+      console.error('No se pudo guardar el backup local:', err)
+    }
+  }, [canvas, deletedItems, palette, projectName, folderLink, eventId, projectCode, currentProjectId, loadingProject, storeId])
+
+  const mergeLocalBackup = () => {
+    if (!localBackupPrompt) return
+    setCanvas(prevCanvas => mergeCanvasKeepingServerData(prevCanvas, localBackupPrompt.canvas ?? []))
+    setLocalBackupPrompt(null)
+  }
+
+  const dismissLocalBackup = () => setLocalBackupPrompt(null)
 
   useEffect(() => {
     if (!showHistory || (historyTab !== 'versiones' && historyTab !== 'registro') || !currentProjectId) return
@@ -970,6 +1043,20 @@ export default function App() {
             </button>
           </div>
         </nav>
+      )}
+
+      {localBackupPrompt && (
+        <div className="local-backup-banner">
+          <span>
+            ⚠ Encontramos un backup local en esta PC más reciente que lo guardado en el servidor
+            (guardado el {new Date(localBackupPrompt.savedAt).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}).
+            ¿Combinarlo? Solo se van a completar los datos que falten — no se va a pisar nada de lo que ya está guardado.
+          </span>
+          <div className="local-backup-banner__actions">
+            <button className="btn-ghost" onClick={dismissLocalBackup}>Descartar</button>
+            <button className="btn-primary" onClick={mergeLocalBackup}>Combinar con lo guardado</button>
+          </div>
+        </div>
       )}
 
       <div className="app__content">
