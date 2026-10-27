@@ -408,8 +408,9 @@ const MERGE_ROW_FIELDS = ['status', 'titulo', 'urlImagen', 'idProductos', 'idPro
 // Combina el canvas del servidor (más al día, puede tener cambios de otra
 // persona/pestaña) con un backup local: nunca pisa un valor que ya esté en el
 // servidor, solo completa los huecos con lo que haya en el backup local y
-// agrega filas/componentes que existan solo del lado local.
-function mergeCanvasKeepingServerData(serverCanvas, localCanvas) {
+// agrega filas/componentes que existan solo del lado local (salvo los que en
+// el servidor figuran como eliminados a propósito).
+function mergeCanvasKeepingServerData(serverCanvas, localCanvas, serverDeletedIds = new Set()) {
   const localById = new Map(localCanvas.map(item => [item.instanceId, item]))
   const merged = serverCanvas.map(serverItem => {
     const localItem = localById.get(serverItem.instanceId)
@@ -429,8 +430,95 @@ function mergeCanvasKeepingServerData(serverCanvas, localCanvas) {
     return { ...serverItem, notes: [...mergedNotes, ...localOnlyRows] }
   })
   const serverIds = new Set(serverCanvas.map(i => i.instanceId))
-  const localOnlyItems = localCanvas.filter(i => !serverIds.has(i.instanceId))
+  const localOnlyItems = localCanvas.filter(i => !serverIds.has(i.instanceId) && !serverDeletedIds.has(i.instanceId))
   return [...merged, ...localOnlyItems]
+}
+
+const sameValue = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+
+// ── Mezcla de 3 vías (para conflictos entre pestañas/personas) ──────────
+// base   = lo que esta pestaña vio por última vez en el servidor
+// local  = lo que tiene ahora esta pestaña
+// server = lo que hay hoy en el servidor
+// Lo que cambió esta pestaña gana; lo que no tocó se toma del servidor. Así no
+// se pierde el trabajo de ninguno de los dos lados (si los dos cambiaron el
+// mismo campo, queda el de esta pestaña).
+function mergeValue(base, local, server) {
+  return sameValue(local, base) ? server : local
+}
+
+function mergeFields(base = {}, local, server, skipKey) {
+  const out = {}
+  for (const k of new Set([...Object.keys(local), ...Object.keys(server)])) {
+    if (k === skipKey) continue
+    const v = mergeValue(base[k], local[k], server[k])
+    if (v !== undefined) out[k] = v
+  }
+  return out
+}
+
+function mergeList(base = [], local = [], server = [], idKey, mergeOne) {
+  const baseById = new Map(base.map(x => [x[idKey], x]))
+  const localById = new Map(local.map(x => [x[idKey], x]))
+  const serverIds = new Set(server.map(x => x[idKey]))
+  const out = []
+  for (const s of server) {
+    const l = localById.get(s[idKey])
+    const b = baseById.get(s[idKey])
+    if (l) out.push(mergeOne(b, l, s))
+    else if (!b || !sameValue(b, s)) out.push(s) // nuevo en el servidor, o lo borré acá pero allá lo editaron
+    // si no: lo borré acá y nadie más lo tocó → queda borrado
+  }
+  local.forEach((l, idx) => {
+    if (serverIds.has(l[idKey])) return
+    const b = baseById.get(l[idKey])
+    if (b && sameValue(b, l)) return // lo borraron en el servidor y acá no se tocó
+    // Se inserta después del mismo vecino que tiene acá, para respetar el orden.
+    let pos = 0
+    for (let j = idx - 1; j >= 0; j--) {
+      const k = out.findIndex(x => x[idKey] === local[j][idKey])
+      if (k !== -1) { pos = k + 1; break }
+    }
+    out.splice(pos, 0, l)
+  })
+  return out
+}
+
+function mergeCanvasItem(base, local, server) {
+  return {
+    ...mergeFields(base, local, server, 'notes'),
+    notes: mergeList(base?.notes, local.notes, server.notes, 'id', mergeFields),
+  }
+}
+
+function mergeProjectThreeWay(base, local, server) {
+  const canvas = mergeList(base.canvas, local.canvas, server.canvas, 'instanceId', mergeCanvasItem)
+  const inCanvas = new Set(canvas.map(i => i.instanceId))
+  const deletedItems = mergeList(base.deletedItems, local.deletedItems, server.deletedItems, 'instanceId', mergeValue)
+    .filter(i => !inCanvas.has(i.instanceId))
+  return {
+    canvas,
+    deletedItems,
+    palette: mergeValue(base.palette, local.palette, server.palette),
+    name: mergeValue(base.name, local.name, server.name),
+    folderLink: mergeValue(base.folderLink, local.folderLink, server.folderLink),
+    eventId: mergeValue(base.eventId, local.eventId, server.eventId),
+    projectCode: mergeValue(base.projectCode, local.projectCode, server.projectCode),
+  }
+}
+
+// Contenido "comparable" de un proyecto, normalizado igual que lo que guarda
+// el autoguardado, para poder saber si realmente hay algo nuevo para guardar.
+function projectContent(p, palette) {
+  return {
+    canvas: p.canvas || [],
+    deletedItems: p.deletedItems || [],
+    palette,
+    name: (p.name || '').trim() || 'Sin título',
+    folderLink: p.folderLink || '',
+    eventId: p.eventId ?? null,
+    projectCode: p.projectCode ?? null,
+  }
 }
 
 function formatDeletedAt(ts) {
@@ -485,8 +573,14 @@ export default function App() {
   const [previewDragFrom, setPreviewDragFrom] = useState(null)
   const [previewDragOver, setPreviewDragOver] = useState(null)
 
-  const [currentProjectId, setCurrentProjectId] = useState(() => urlProjectId ?? draft?.currentProjectId ?? null)
-  const currentProjectIdRef = useRef(urlProjectId ?? draft?.currentProjectId ?? null)
+  // OJO: nunca se confía en draft?.currentProjectId. Si la URL no trae ?p=, la
+  // sesión SIEMPRE arranca como proyecto nuevo (id null) aunque el borrador
+  // tenga contenido de un proyecto real guardado antes en esta misma pestaña —
+  // si no, el autoguardado podría pisar silenciosamente ese proyecto real sin
+  // que la URL lo muestre. El id de un proyecto ya guardado solo se restaura
+  // navegando con su ?p=, que sí trae los datos frescos desde Firestore.
+  const [currentProjectId, setCurrentProjectId] = useState(() => urlProjectId ?? null)
+  const currentProjectIdRef = useRef(urlProjectId ?? null)
   const [projectName, setProjectName] = useState(() => draft?.projectName ?? '')
   const [folderLink, setFolderLink] = useState(() => draft?.folderLink ?? '')
   const [eventId, setEventId] = useState(() => draft?.eventId ?? null)
@@ -495,8 +589,18 @@ export default function App() {
   const [savedFlash, setSavedFlash] = useState(false)
   const [saveError, setSaveError] = useState(false)
   const [saveConflict, setSaveConflict] = useState(false)
-  const hasPendingSaveRef = useRef(false)
+  const [saving, setSaving] = useState(false)
+  // Lo último que esta pestaña vio en el servidor: savedAt + rev (contador que
+  // sube en cada guardado). Para detectar que otro guardó en el medio se
+  // compara por IGUALDAD, nunca por "más nuevo": savedAt lo pone el reloj de
+  // cada PC y si una tiene la hora atrasada la comparación por fecha falla.
   const lastKnownSavedAtRef = useRef(null)
+  const lastKnownRevRef = useRef(null)
+  // Último contenido que esta pestaña sabe que está en el servidor (al cargar
+  // o al guardar). Define si hay "cambios sin guardar" y es la "base" de la
+  // mezcla de 3 vías cuando hay conflicto.
+  const [baseContent, setBaseContent] = useState(null)
+  const [resolvingConflict, setResolvingConflict] = useState(false)
   const [localBackupPrompt, setLocalBackupPrompt] = useState(null)
   const [teams, setTeams] = useState([])
   const [showNotifyModal, setShowNotifyModal] = useState(false)
@@ -512,9 +616,10 @@ export default function App() {
       .then(snap => {
         if (snap.exists()) {
           const p = snap.data()
+          const loadedPalette = mergePaletteWithDefaults(p.palette || defaultPalette, defaultPalette)
           setCanvas(p.canvas || [])
           setDeletedItems(p.deletedItems || [])
-          setPalette(mergePaletteWithDefaults(p.palette || defaultPalette, defaultPalette))
+          setPalette(loadedPalette)
           setProjectName(p.name || '')
           setCurrentProjectId(urlProjectId)
           currentProjectIdRef.current = urlProjectId
@@ -522,15 +627,20 @@ export default function App() {
           setEventId(p.eventId || null)
           setProjectCode(p.projectCode || null)
           lastKnownSavedAtRef.current = p.savedAt ?? null
+          lastKnownRevRef.current = p.rev ?? null
+          setBaseContent(projectContent(p, loadedPalette))
 
-          // Si en esta PC hay un backup local de este proyecto más nuevo que lo
-          // último guardado en el servidor y con contenido distinto, puede ser
-          // que un guardado se haya perdido (falla de red, cierre de pestaña,
-          // conflicto, etc). Se lo ofrecemos al usuario en vez de pisarlo solo.
+          // Si en esta PC hay un backup local de este proyecto con datos que el
+          // servidor no tiene, puede ser que un guardado se haya perdido (falla
+          // de red, cierre de pestaña, conflicto, etc). Se lo ofrecemos siempre,
+          // sin importar la fecha: aunque alguien haya guardado después en el
+          // servidor, lo que solo existe en esta PC se perdería si no se ofrece.
           const backup = loadLocalBackup(storeId, urlProjectId)
-          if (backup && backup.savedAt > (p.savedAt ?? 0) &&
-              JSON.stringify(backup.canvas) !== JSON.stringify(p.canvas || [])) {
-            setLocalBackupPrompt(backup)
+          if (backup?.canvas) {
+            const serverCanvas = p.canvas || []
+            const serverDeletedIds = new Set((p.deletedItems || []).map(i => i.instanceId))
+            const merged = mergeCanvasKeepingServerData(serverCanvas, backup.canvas, serverDeletedIds)
+            if (!sameValue(merged, serverCanvas)) setLocalBackupPrompt(backup)
           }
         }
         setLoadingProject(false)
@@ -547,15 +657,24 @@ export default function App() {
     return unsub
   }, [])
 
+  // Este borrador es solo para un proyecto TODAVÍA NO guardado (currentProjectId
+  // null) — permite recuperar lo tipeado si se recarga la página antes del
+  // primer "Guardar". Una vez que el proyecto tiene id propio, vive en su doc
+  // de Firestore (accesible por ?p=) y en su backup local propio más abajo;
+  // seguir pisando este mismo slot por tienda ya no aporta nada y es lo que
+  // antes permitía que una pestaña nueva heredara sin querer un proyecto real.
   useEffect(() => {
-    localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, deletedItems, palette, projectName, currentProjectId, folderLink, eventId, projectCode }))
+    if (currentProjectId) return
+    localStorage.setItem(draftKey(storeId), JSON.stringify({ canvas, deletedItems, palette, projectName, folderLink, eventId, projectCode }))
   }, [canvas, deletedItems, palette, projectName, currentProjectId, folderLink, eventId, projectCode, storeId])
 
   // Backup local por proyecto: se guarda en la PC del usuario en cada cambio,
   // independiente del autoguardado a Firestore. Sirve como red de contención
   // si un guardado se pierde por corte de red, conflicto o cierre de pestaña.
+  // Mientras el aviso de backup está pendiente NO se pisa el backup: si no, al
+  // recargar la página antes de decidir se perdería lo que solo estaba acá.
   useEffect(() => {
-    if (!currentProjectId || loadingProject) return
+    if (!currentProjectId || loadingProject || localBackupPrompt) return
     try {
       localStorage.setItem(backupKey(storeId, currentProjectId), JSON.stringify({
         savedAt: Date.now(), canvas, deletedItems, palette, projectName, folderLink, eventId, projectCode,
@@ -563,11 +682,12 @@ export default function App() {
     } catch (err) {
       console.error('No se pudo guardar el backup local:', err)
     }
-  }, [canvas, deletedItems, palette, projectName, folderLink, eventId, projectCode, currentProjectId, loadingProject, storeId])
+  }, [canvas, deletedItems, palette, projectName, folderLink, eventId, projectCode, currentProjectId, loadingProject, storeId, localBackupPrompt])
 
   const mergeLocalBackup = () => {
     if (!localBackupPrompt) return
-    setCanvas(prevCanvas => mergeCanvasKeepingServerData(prevCanvas, localBackupPrompt.canvas ?? []))
+    const serverDeletedIds = new Set(deletedItems.map(i => i.instanceId))
+    setCanvas(prevCanvas => mergeCanvasKeepingServerData(prevCanvas, localBackupPrompt.canvas ?? [], serverDeletedIds))
     setLocalBackupPrompt(null)
   }
 
@@ -598,97 +718,30 @@ export default function App() {
     [previewVersion, canvas]
   )
 
-  // Auto-save a Firestore cuando el proyecto ya tiene ID y el usuario edita.
-  // pendingSaveRef siempre tiene el payload más reciente, para poder forzar
-  // el guardado desde un listener global (visibilitychange/beforeunload) sin
-  // depender de un closure con estado viejo.
-  const autoSaveTimer = useRef(null)
-  const pendingSaveRef = useRef(null)
+  // Guardado manual: no hay autoguardado. "Cambios sin guardar" = lo que hay en
+  // pantalla es distinto de lo último que esta pestaña sabe que está en el
+  // servidor. Un proyecto nuevo (sin id) cuenta como sin guardar si tiene algo.
+  const isDirty = useMemo(() => {
+    if (loadingProject) return false
+    if (!currentProjectId) return canvas.length > 0 || !!projectName.trim()
+    if (!baseContent) return false
+    return !sameValue(
+      projectContent({ canvas, deletedItems, name: projectName, folderLink, eventId, projectCode }, palette),
+      baseContent
+    )
+  }, [loadingProject, currentProjectId, baseContent, canvas, deletedItems, projectName, folderLink, eventId, projectCode, palette])
 
-  const flushSave = useRef(async () => {
-    if (!pendingSaveRef.current) return
-    const id = currentProjectIdRef.current
-    if (!id) { pendingSaveRef.current = null; return }
-    const payload = pendingSaveRef.current
-    const knownSavedAt = lastKnownSavedAtRef.current
-    pendingSaveRef.current = null
-    clearTimeout(autoSaveTimer.current)
-    const ref = doc(db, 'stores', storeId, 'projects', id)
-    const historyRef = doc(collection(db, 'stores', storeId, 'projects', id, 'history'))
-    try {
-      await runTransaction(db, async (tx) => {
-        const snap = await tx.get(ref)
-        const serverSavedAt = snap.exists() ? snap.data().savedAt : null
-        // Si el servidor tiene un guardado más nuevo que el último que vimos,
-        // otra pestaña/persona editó este proyecto: no lo pisamos.
-        if (serverSavedAt && knownSavedAt && serverSavedAt > knownSavedAt) {
-          throw new Error('SAVE_CONFLICT')
-        }
-        tx.set(ref, payload)
-        tx.set(historyRef, { savedAt: payload.savedAt, canvas: payload.canvas })
-      })
-      pruneHistoryVersions(storeId, id)
-      lastKnownSavedAtRef.current = payload.savedAt
-      hasPendingSaveRef.current = false
-      setSaveError(false)
-      setSaveConflict(false)
-      setSavedFlash(true)
-      setTimeout(() => setSavedFlash(false), 2000)
-    } catch (err) {
-      if (err.message === 'SAVE_CONFLICT') {
-        hasPendingSaveRef.current = false
-        setSaveConflict(true)
-      } else {
-        console.error('Auto-save falló:', err)
-        setSaveError(true)
-      }
-    }
-  }).current
-
+  // Aviso del navegador si se intenta cerrar/recargar/salir con cambios sin guardar.
   useEffect(() => {
-    if (!currentProjectId || loadingProject) return
-    pendingSaveRef.current = {
-      id: currentProjectIdRef.current,
-      name: projectName.trim() || 'Sin título',
-      savedAt: Date.now(),
-      canvas,
-      deletedItems,
-      palette,
-      folderLink,
-      eventId: eventId ?? null,
-      projectCode: projectCode ?? null,
-    }
-    hasPendingSaveRef.current = true
-    clearTimeout(autoSaveTimer.current)
-    autoSaveTimer.current = setTimeout(flushSave, 800)
-    return () => clearTimeout(autoSaveTimer.current)
-  }, [canvas, deletedItems, palette, projectName, folderLink, eventId, currentProjectId, loadingProject])
-
-  // Si la pestaña se oculta (F5, cerrar, cambiar de pestaña) antes de que el
-  // debounce dispare, forzamos el guardado ya mismo en vez de esperar.
-  // El beforeunload queda como aviso adicional por si el guardado no llega a tiempo.
-  useEffect(() => {
-    const handleHide = () => {
-      if (document.visibilityState !== 'hidden') return
-      if (hasPendingSaveRef.current) flushSave()
-    }
-    const handlePageHide = () => { if (hasPendingSaveRef.current) flushSave() }
+    if (!isDirty) return
     const handleBeforeUnload = (e) => {
-      if (!hasPendingSaveRef.current) return
-      flushSave()
       e.preventDefault()
       e.returnValue = ''
       return ''
     }
-    document.addEventListener('visibilitychange', handleHide)
-    window.addEventListener('pagehide', handlePageHide)
     window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => {
-      document.removeEventListener('visibilitychange', handleHide)
-      window.removeEventListener('pagehide', handlePageHide)
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-    }
-  }, [flushSave])
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty])
 
   // ── Palette handlers ──────────────────────────────
   const selectVariant = (categoryId, variantId) =>
@@ -902,55 +955,174 @@ export default function App() {
   }
 
   // ── Project handlers ──────────────────────────────
-  const handleSave = async () => {
-    const name = projectName.trim()
-    if (!name) return
+  const currentLocalContent = () => projectContent(
+    { canvas, deletedItems, name: projectName, folderLink, eventId, projectCode },
+    palette
+  )
+
+  // Guarda `content` en el servidor. No depende del estado de React para que
+  // se pueda llamar justo después de combinar (cuando el estado todavía no se
+  // actualizó). Devuelve true si guardó.
+  const saveProject = async (content) => {
+    const isFirstSave = !currentProjectIdRef.current
     const id = currentProjectIdRef.current || crypto.randomUUID()
     currentProjectIdRef.current = id
     setCurrentProjectId(id)
     loadedProjectIdRef.current = id
-    const code = projectCode || generateProjectCode()
-    if (!projectCode) setProjectCode(code)
-    const project = { id, name, savedAt: Date.now(), canvas, deletedItems, palette, folderLink, eventId: eventId ?? null, projectCode: code }
+    const knownSavedAt = lastKnownSavedAtRef.current
+    const knownRev = lastKnownRevRef.current
+    const project = { id, ...content, savedAt: Date.now(), rev: (knownRev ?? 0) + 1 }
     const ref = doc(db, 'stores', storeId, 'projects', id)
     const historyRef = doc(collection(db, 'stores', storeId, 'projects', id, 'history'))
-    const knownSavedAt = lastKnownSavedAtRef.current
 
+    setSaving(true)
     try {
-      // Igual que el autoguardado: si el servidor tiene un guardado más nuevo
-      // que el último que vimos (otra pestaña, otra persona), no lo pisamos.
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(ref)
-        const serverSavedAt = snap.exists() ? snap.data().savedAt : null
-        if (serverSavedAt && knownSavedAt && serverSavedAt > knownSavedAt) {
-          throw new Error('SAVE_CONFLICT')
+        // Si el servidor no tiene exactamente la versión que vimos nosotros,
+        // otra pestaña/persona guardó en el medio: no la pisamos.
+        if (snap.exists()) {
+          const server = snap.data()
+          if (server.savedAt !== knownSavedAt || (server.rev ?? null) !== knownRev) {
+            throw new Error('SAVE_CONFLICT')
+          }
         }
         tx.set(ref, project)
         tx.set(historyRef, { savedAt: project.savedAt, canvas: project.canvas })
       })
       pruneHistoryVersions(storeId, id)
       lastKnownSavedAtRef.current = project.savedAt
+      lastKnownRevRef.current = project.rev
+      setBaseContent(projectContent(project, project.palette))
+      setSaveError(false)
       setSaveConflict(false)
       setSearchParams({ p: id }, { replace: true })
-      if (teams.length > 0) {
+      // El aviso a los equipos solo al crear el proyecto, no en cada guardado.
+      if (isFirstSave && teams.length > 0) {
         setShowNotifyModal(true)
       } else {
         setSavedFlash(true)
         setTimeout(() => setSavedFlash(false), 2000)
       }
+      return true
     } catch (err) {
       if (err.message === 'SAVE_CONFLICT') {
         setSaveConflict(true)
       } else {
-        console.error('Guardado manual falló:', err)
+        console.error('No se pudo guardar:', err)
         setSaveError(true)
       }
+      return false
+    } finally {
+      setSaving(false)
     }
   }
 
+  const handleSave = async () => {
+    if (!projectName.trim() || saving || saveConflict) return
+    const code = projectCode || generateProjectCode()
+    if (!projectCode) setProjectCode(code)
+    await saveProject({ ...currentLocalContent(), projectCode: code })
+  }
+
+  // Ctrl+S / Cmd+S guarda (en vez de abrir el "Guardar página" del navegador).
+  const handleSaveRef = useRef(handleSave)
+  handleSaveRef.current = handleSave
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        handleSaveRef.current()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  // ── Conflicto de guardado ─────────────────────────
+
+  const applyProjectContent = (content) => {
+    setCanvas(content.canvas)
+    setDeletedItems(content.deletedItems)
+    setPalette(content.palette)
+    setProjectName(content.name)
+    setFolderLink(content.folderLink)
+    setEventId(content.eventId)
+    setProjectCode(content.projectCode)
+  }
+
+  const fetchServerContent = async () => {
+    const snap = await getDoc(doc(db, 'stores', storeId, 'projects', currentProjectIdRef.current))
+    const p = snap.data()
+    const serverPalette = mergePaletteWithDefaults(p.palette || defaultPalette, defaultPalette)
+    return { content: projectContent(p, serverPalette), savedAt: p.savedAt ?? null, rev: p.rev ?? null }
+  }
+
+  const adoptServerVersion = (server) => {
+    setBaseContent(server.content)
+    lastKnownSavedAtRef.current = server.savedAt
+    lastKnownRevRef.current = server.rev
+  }
+
+  // Trae lo último del servidor, le suma lo que se hizo en esta pestaña y lo
+  // guarda. Si justo otro volvió a guardar en el medio, vuelve a aparecer el
+  // aviso de conflicto y se repite.
+  const resolveConflictByMerging = async () => {
+    setResolvingConflict(true)
+    try {
+      const server = await fetchServerContent()
+      const base = baseContent ?? server.content
+      const merged = mergeProjectThreeWay(base, currentLocalContent(), server.content)
+      adoptServerVersion(server)
+      applyProjectContent(merged)
+      setSaveConflict(false)
+      await saveProject(merged)
+    } catch (err) {
+      console.error('No se pudo combinar con el servidor:', err)
+      alert('No se pudo combinar. Revisá la conexión y probá de nuevo — tus cambios siguen acá.')
+    } finally {
+      setResolvingConflict(false)
+    }
+  }
+
+  const resolveConflictByDiscarding = async () => {
+    if (!window.confirm('Se van a perder los cambios que hiciste en esta pestaña y se va a cargar lo que está guardado en el servidor. ¿Seguro?')) return
+    setResolvingConflict(true)
+    try {
+      const server = await fetchServerContent()
+      adoptServerVersion(server)
+      applyProjectContent(server.content)
+      setSaveConflict(false)
+    } catch (err) {
+      console.error('No se pudo cargar lo del servidor:', err)
+      alert('No se pudo cargar lo del servidor. Revisá la conexión y probá de nuevo.')
+    } finally {
+      setResolvingConflict(false)
+    }
+  }
+
+  const downloadLocalCopy = () => {
+    const blob = new Blob([JSON.stringify({ projectId: currentProjectIdRef.current, storeId, exportedAt: Date.now(), ...currentLocalContent() }, null, 2)], { type: 'application/json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `copia-${(projectName.trim() || 'proyecto').replace(/[^\w-]+/g, '_')}.json`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+  }
+
+  // Para salidas dentro de la app (volver al menú, "Nuevo"), que el aviso del
+  // navegador (beforeunload) no cubre.
+  const confirmDiscardChanges = () =>
+    !isDirty || window.confirm('Tenés cambios sin guardar en este proyecto. Si salís, se pierden. ¿Salir igual?')
+
   const handleNew = () => {
+    if (!confirmDiscardChanges()) return
     currentProjectIdRef.current = null
     loadedProjectIdRef.current = null
+    lastKnownSavedAtRef.current = null
+    lastKnownRevRef.current = null
+    setBaseContent(null)
+    setSaveConflict(false)
     setCanvas([])
     setDeletedItems([])
     setPalette(defaultPalette)
@@ -981,7 +1153,7 @@ export default function App() {
           <div className="app-nav__brand">
             <button
               className="app-nav__back"
-              onClick={() => navigate(`/store/${storeId}`)}
+              onClick={() => confirmDiscardChanges() && navigate(`/store/${storeId}`)}
               title="Volver a proyectos"
             >
               menú
@@ -1017,29 +1189,25 @@ export default function App() {
               </span>
             )}
             {saveConflict && (
-              <span className="app-nav__save-conflict" title="Otra pestaña o persona guardó cambios más nuevos. Tu último cambio no se guardó para no pisarlo.">
-                ⚠ Alguien más editó este proyecto —
-                <button className="app-nav__save-conflict-btn" onClick={() => window.location.reload()}>recargar</button>
-              </span>
+              <span className="app-nav__save-conflict">⚠ Sin guardar — conflicto</span>
             )}
           </div>
 
           <div className="app-nav__actions">
-            {!currentProjectId && (
-              <span className="app-nav__save-hint">
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                  <path d="M8 2a6 6 0 100 12A6 6 0 008 2zm0 3v4m0 2v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-                Guardá antes de salir — el autoguardado se activa después del primer guardado
+            {isDirty && !saving && (
+              <span className="app-nav__dirty">
+                <span className="app-nav__dirty-dot" />
+                {projectName.trim() ? 'Cambios sin guardar' : 'Poné un nombre para poder guardar'}
               </span>
             )}
             <button className="btn-ghost" onClick={handleNew}>Nuevo</button>
             <button
-              className="btn-primary"
+              className={`btn-primary app-nav__save-btn${isDirty ? ' app-nav__save-btn--dirty' : ''}`}
               onClick={handleSave}
-              disabled={!projectName.trim()}
+              disabled={!projectName.trim() || saving || saveConflict}
+              title="Guardar (Ctrl+S)"
             >
-              Guardar
+              {saving ? 'Guardando…' : isDirty ? 'Guardar cambios' : 'Guardado ✓'}
             </button>
           </div>
         </nav>
@@ -1048,13 +1216,38 @@ export default function App() {
       {localBackupPrompt && (
         <div className="local-backup-banner">
           <span>
-            ⚠ Encontramos un backup local en esta PC más reciente que lo guardado en el servidor
-            (guardado el {new Date(localBackupPrompt.savedAt).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}).
-            ¿Combinarlo? Solo se van a completar los datos que falten — no se va a pisar nada de lo que ya está guardado.
+            ⚠ En esta PC hay cambios de este proyecto que no están en el servidor
+            (del {new Date(localBackupPrompt.savedAt).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}).
+            ¿Combinarlos? Solo se van a completar los datos que falten — no se va a pisar nada de lo que ya está guardado.
           </span>
           <div className="local-backup-banner__actions">
             <button className="btn-ghost" onClick={dismissLocalBackup}>Descartar</button>
             <button className="btn-primary" onClick={mergeLocalBackup}>Combinar con lo guardado</button>
+          </div>
+        </div>
+      )}
+
+      {saveConflict && (
+        <div className="save-conflict-overlay">
+          <div className="save-conflict-modal" role="alertdialog" aria-modal="true" aria-labelledby="save-conflict-title">
+            <p className="save-conflict-modal__title" id="save-conflict-title">⚠ Tus últimos cambios NO se guardaron</p>
+            <p className="save-conflict-modal__text">
+              Alguien más (u otra pestaña tuya) guardó cambios en este proyecto mientras lo tenías abierto.
+              Para no pisar su trabajo, se frenó el guardado.
+            </p>
+            <p className="save-conflict-modal__text">
+              <strong>Combinar</strong> trae lo último del servidor y le suma lo que hiciste acá, sin perder lo de ninguno de los dos.
+              Si los dos cambiaron el mismo dato, queda el tuyo.
+            </p>
+            <div className="save-conflict-modal__actions">
+              <button className="btn-primary" onClick={resolveConflictByMerging} disabled={resolvingConflict}>
+                {resolvingConflict ? 'Combinando…' : 'Combinar mis cambios y guardar'}
+              </button>
+              <div className="save-conflict-modal__secondary">
+                <button className="btn-ghost" onClick={downloadLocalCopy} disabled={resolvingConflict}>Descargar copia de mis cambios</button>
+                <button className="btn-ghost save-conflict-modal__danger" onClick={resolveConflictByDiscarding} disabled={resolvingConflict}>Descartar mis cambios</button>
+              </div>
+            </div>
           </div>
         </div>
       )}
