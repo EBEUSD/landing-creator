@@ -317,11 +317,21 @@ export default function ProjectsList() {
   const handleDuplicateConfirm = async ({ name, targetStoreId }) => {
     const project = duplicating
     const newId = crypto.randomUUID()
+    // Las imágenes se guardan en Storage usando solo instanceId/rowId (sin
+    // tienda ni proyecto en la ruta). Si duplicamos el canvas tal cual, el
+    // proyecto nuevo termina apuntando a los MISMOS archivos que el original:
+    // subir una foto en uno la pisa en el otro. Por eso hay que regenerar los
+    // ids de cada componente y cada fila al duplicar.
+    const clonedCanvas = (project.canvas || []).map(item => ({
+      ...item,
+      instanceId: crypto.randomUUID(),
+      notes: (item.notes || []).map(n => ({ ...n, id: crypto.randomUUID() })),
+    }))
     await setDoc(doc(db, 'stores', targetStoreId, 'projects', newId), {
       id: newId,
       name,
       savedAt: Date.now(),
-      canvas: project.canvas,
+      canvas: clonedCanvas,
       palette: project.palette,
       folderLink: project.folderLink ?? '',
       eventId: null,
