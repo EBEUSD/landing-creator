@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
+import { getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyDg-tAXB345gmiOl-uPiTdf3P3lrUJURoo',
@@ -14,3 +15,18 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig)
 export const db = getFirestore(app)
 export const storage = getStorage(app)
+export const auth = getAuth(app)
+
+// Sesión anónima: las reglas de Firestore/Storage exigen estar logueado.
+// Si el login falla (proveedor desactivado, sin red), la app arranca igual.
+export const authReady = new Promise((resolve) => {
+  const done = (user) => { stop(); clearTimeout(timer); resolve(user) }
+  const timer = setTimeout(() => done(null), 8000)
+  const stop = onAuthStateChanged(auth, (user) => {
+    if (user) return done(user)
+    signInAnonymously(auth).catch((e) => {
+      console.warn('Login anónimo falló:', e.code)
+      done(null)
+    })
+  })
+})
